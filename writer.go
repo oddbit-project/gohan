@@ -18,6 +18,13 @@ type writer struct {
 	args []any
 	err  error
 	done bool
+
+	// idents counts calls to ident that passed validation. rawIdents
+	// counts identifier-like tokens found in Raw SQL text (see
+	// rawIdentifierCount in trivial.go). Both are used by IsTrivial's
+	// column-free check in trivial.go.
+	idents    int
+	rawIdents int
 }
 
 // keyword appends a trusted constant verbatim. It must never receive
@@ -61,6 +68,7 @@ func (w *writer) ident(name string) {
 			return
 		}
 	}
+	w.idents++
 	for i, p := range parts {
 		if i > 0 {
 			w.buf.WriteByte('.')

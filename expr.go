@@ -36,6 +36,7 @@ type Value struct {
 	isRaw   bool
 	trivial bool
 	never   bool
+	empty   bool
 }
 
 func (v Value) render(w *writer) {
@@ -187,6 +188,7 @@ func Raw(sql string, args ...any) Value {
 				w.fail(ErrRawArgs)
 				return
 			}
+			w.rawIdents += rawIdentifierCount(sql)
 			n := len(sql)
 			i := 0
 			argIdx := 0
@@ -304,6 +306,7 @@ func renderBoolList(w *writer, exprs []Expr, sep, emptyLit string) {
 func And(exprs ...Expr) Value {
 	trivial := true
 	never := false
+	empty := true
 	for _, e := range exprs {
 		v, ok := e.(Value)
 		if !ok || !v.trivial {
@@ -312,10 +315,14 @@ func And(exprs ...Expr) Value {
 		if ok && v.never {
 			never = true
 		}
+		if !ok || !v.empty {
+			empty = false
+		}
 	}
 	return Value{
 		trivial: trivial,
 		never:   never,
+		empty:   empty,
 		fn: func(w *writer) {
 			renderBoolList(w, exprs, "AND", "1=1")
 		},
