@@ -6,6 +6,7 @@
 - [IN and NOT IN](#in-and-not-in)
 - [LIKE and pattern helpers](#like-and-pattern-helpers)
 - [Combining conditions](#combining-conditions)
+- [Checking a condition](#checking-a-condition)
 - [Aggregates and functions](#aggregates-and-functions)
 - [CASE](#case)
 - [Integer literals: Int](#integer-literals-int)
@@ -156,6 +157,37 @@ sql, args, err := gohan.From("users").
 // sql: SELECT * FROM "users" WHERE ("country" = $1 AND "status" = $2)
 // args: [PT active]
 ```
+
+## Checking a condition
+
+`IsEmpty(cond)` reports whether `cond` places no condition at all: `nil`, the zero `Value`, or
+`And()` with no elements (directly, or nested only in other empty `And`s).
+
+`IsTrivial(cond)` reports whether `cond` does not restrict rows: it is empty, syntactically
+always true (as `And()`, `Or(x, And())`, `Not(Or())` and similar already are), or it references
+no column at all — a constant such as `Raw("1=1")`, `Raw("true")`, `Raw("? = ?", 1, 1)` or
+`Val(1).Eq(1)`:
+
+```go
+fmt.Println(gohan.IsTrivial(nil))
+fmt.Println(gohan.IsTrivial(gohan.And()))
+fmt.Println(gohan.IsTrivial(gohan.Raw("1=1")))
+fmt.Println(gohan.IsTrivial(gohan.Col("a").Eq(1)))
+// Output:
+// true
+// true
+// true
+// false
+```
+
+Both functions are pure — they never mutate `cond` and take no dialect, since column-ness does not
+depend on the dialect. `Update`/`Delete`'s `WHERE` guard (see
+[The WHERE requirement](update-and-delete.md#the-where-requirement)) uses `IsTrivial` directly.
+
+The column-free check is syntactic: it does not know that `Col("id").Eq(Col("id"))` is always
+true, that an uncorrelated subquery in `Exists`/`In` is unaffected by the outer row (it still
+references a table, so it is not column-free), or that `Raw("abs(1) = 1")` is a constant (the
+word `abs` counts as a reference). These are known limits, not bugs to work around.
 
 ## Aggregates and functions
 

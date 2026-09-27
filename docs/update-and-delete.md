@@ -144,8 +144,24 @@ sql, args, err := gohan.Delete("users").
 // args: [3]
 ```
 
-The guard only recognizes the shapes listed above; a `Raw("1=1")` or a comparison of two bound
-values is not detected. It is a safety net, not a substitute for building the condition you mean.
+The guard also rejects a condition that references no column at all — a constant such as
+`Raw("1=1")`, `Raw("true")` or `Val(1).Eq(1)` — using `IsTrivial` (see
+[Checking a condition](expressions.md#checking-a-condition)):
+
+```go
+_, _, err := gohan.Delete("users").Where(gohan.Raw("1=1")).Build(gohan.Postgres())
+fmt.Println(errors.Is(err, gohan.ErrNoWhere))
+// Output:
+// true
+```
+
+This is stricter than earlier releases: code that relied on `Where(gohan.Raw("1=1"))` (or another
+column-free condition) to affect every row now needs `All()` instead.
+
+The column-free rule is syntactic, not semantic: it does not know that `Col("id").Eq(Col("id"))`
+is always true, that an uncorrelated `Exists`/subquery is unaffected by the outer row, or that
+`Raw("abs(1) = 1")` is a constant (the word `abs` counts as a reference). It is a safety net, not
+a substitute for building the condition you mean.
 
 To affect every row on purpose, call `All()`:
 

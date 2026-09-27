@@ -565,6 +565,22 @@ func ExampleNot() {
 	// SELECT * FROM "t" WHERE NOT (("a" = $1 OR "b" = $2)) [1 2] <nil>
 }
 
+// ExampleIsTrivial shows that IsTrivial catches a column-free Raw
+// condition, not just the empty/always-true cases the builders already
+// know about. A condition that names at least one column is not trivial,
+// even wrapped in a constant.
+func ExampleIsTrivial() {
+	fmt.Println(gohan.IsTrivial(nil))
+	fmt.Println(gohan.IsTrivial(gohan.And()))
+	fmt.Println(gohan.IsTrivial(gohan.Raw("1=1")))
+	fmt.Println(gohan.IsTrivial(gohan.Col("a").Eq(1)))
+	// Output:
+	// true
+	// true
+	// true
+	// false
+}
+
 // ExampleValue_In expands a single slice argument into one placeholder
 // per element; an empty list renders the always-false 1=0.
 func ExampleValue_In() {

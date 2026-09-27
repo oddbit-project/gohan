@@ -37,6 +37,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   (each with optional `OF` names), and `SkipLocked`/`NoWait`. PostgreSQL only (`FeatureLocking`);
   fails with `ErrUnsupported` elsewhere, and with `ErrInvalidLock` combined with `DISTINCT`,
   `GROUP BY`/`HAVING` or `UNION`. See [Row locking](docs/select.md#row-locking).
+- `IsEmpty(cond)` and `IsTrivial(cond)`: exported checks for whether a condition places no
+  restriction at all, including a column-free constant such as `Raw("1=1")`, `Raw("true")` or
+  `Val(1).Eq(1)` that the builders could not previously detect. See
+  [Checking a condition](docs/expressions.md#checking-a-condition).
+
+### Changed
+
+- `Update`/`Delete`'s `WHERE` guard now uses `IsTrivial`, so a column-free condition — for example
+  `Where(Raw("1=1"))` or `Where(Val(1).Eq(1))` — fails with `ErrNoWhere` the same as an empty or
+  always-true one, unless `All()` is called. This is stricter than v0.1.0: code that relied on a
+  constant `Raw` condition to affect every row now needs `All()`. See
+  [The WHERE requirement](docs/update-and-delete.md#the-where-requirement).
 
 ### Fixed
 
