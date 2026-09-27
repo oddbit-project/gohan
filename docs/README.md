@@ -6,6 +6,40 @@ ANSI dialect. It does not run queries: pass the result to `database/sql` or your
 
 Every SQL string and argument list in these pages is copied from real `gohan` output.
 
+## Why "gohan"?
+
+gohan is a spiritual successor to [goqu](https://github.com/doug-martin/goqu), the expressive Go
+SQL builder. The name is a nod to that lineage: *goqu* reads like *Goku*, and in Dragon Ball,
+Gohan is Goku's son — the next generation, raised on what came before, carrying it forward in
+its own way. (*Gohan* is also the Japanese word for a meal of rice, which suits a library you use
+every day.)
+
+**What it inherits from goqu**
+
+- A fluent builder: `Select`, `From`, `Where`, `Join`, `OrderBy`, `Insert`, `Update`, `Delete`,
+  `OnConflict`, `Returning`, CTEs and `UNION` read the way goqu users expect.
+- Dialect awareness: one query definition renders for PostgreSQL, SQLite, ClickHouse or generic
+  ANSI SQL.
+- Map conditions (`Match(map)`, in the spirit of `goqu.Ex`) and struct-based inserts and updates.
+- goqu's struct-tag vocabulary: `goqu:"skipinsert"`, `goqu:"skipupdate"`, `goqu:"omitnil"` and
+  `goqu:"omitempty"` are honoured, so existing record types keep working.
+
+**What it does differently**
+
+- **Values are always bound.** There is no interpolated mode that writes values into the SQL
+  text, so there is no mode in which a forgotten setting turns user input into SQL.
+- **Identifiers are always quoted and escaped**, with per-dialect rules (including ClickHouse's
+  backslash escapes and SQLite's backtick quoting).
+- **Refuses dangerous or ambiguous SQL at build time**: an `UPDATE` or `DELETE` without a `WHERE`
+  needs an explicit `All()`, and ClickHouse values the driver would format unsafely are rejected.
+- **Builds, never runs.** `Build(dialect)` returns SQL and arguments; execution belongs to
+  `database/sql` or your driver.
+- **Immutable builders**: every method returns a copy, so a base query can be shared and extended
+  safely.
+
+gohan is an independent project, written from scratch; it is not a fork of goqu and is not
+affiliated with its authors.
+
 ## Guides
 
 | Page | Contents |
