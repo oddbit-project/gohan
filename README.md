@@ -280,6 +280,11 @@ struct's exported fields via `GetStructMeta`, honouring these struct tags:
 - A bound value alone in a PostgreSQL select list may need `Cast(...)` to give it a concrete
   type (PostgreSQL infers `text` for an untyped bound parameter in some positions).
 
+## Security
+
+Please report vulnerabilities privately — see [SECURITY.md](SECURITY.md). Do not open public issues
+for security problems.
+
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
