@@ -413,6 +413,31 @@ func ExampleSelectBuilder_Settings() {
 	// [1 4] <nil>
 }
 
+// ExampleClickHouseNamed renders a statement with @pN placeholders and
+// sql.NamedArg arguments instead of ClickHouse's default positional `?`.
+// Use this mode to keep DateTime64 sub-second precision: convert each
+// time.Time arg to clickhouse.DateNamed before passing args to db.Query,
+// e.g.:
+//
+//	for i, a := range args {
+//	    na := a.(sql.NamedArg)
+//	    if t, ok := na.Value.(time.Time); ok {
+//	        args[i] = clickhouse.DateNamed(na.Name, t, clickhouse.NanoSeconds)
+//	    }
+//	}
+func ExampleClickHouseNamed() {
+	sql, args, err := gohan.Select("id").
+		From("t").
+		Where(gohan.Col("a").Eq("x"), gohan.Col("b").In(1, 2)).
+		Limit(5).
+		Build(gohan.ClickHouseNamed())
+	fmt.Println(sql)
+	fmt.Println(args, err)
+	// Output:
+	// SELECT "id" FROM "t" WHERE ("a" = @p1 AND "b" IN (@p2, @p3)) LIMIT 5
+	// [{{} p1 x} {{} p2 1} {{} p3 2}] <nil>
+}
+
 // ---------------------------------------------------------------------
 // Expressions
 // ---------------------------------------------------------------------
