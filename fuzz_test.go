@@ -133,6 +133,30 @@ func FuzzValueNeverInlined(f *testing.F) {
 	})
 }
 
+// FuzzIsTrivialRaw links IsTrivial's column-free branch to
+// rawIdentifierCount for any sql text validateRaw accepts with zero `?`
+// markers (so Raw(sql) takes no args).
+func FuzzIsTrivialRaw(f *testing.F) {
+	seeds := []string{
+		"1=1", "1 = 1", "TRUE", "'a' = 'a'", "NOT FALSE", "1=0",
+		"a = 1", `"a" > 0`, "'it''s' = name", "$1 = 1",
+	}
+	for _, s := range seeds {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, sql string) {
+		markers, err := validateRaw(Generic(), sql)
+		if err != nil || markers != 0 {
+			t.Skip()
+		}
+		trivial := IsTrivial(Raw(sql))
+		columnFree := rawIdentifierCount(sql) == 0
+		if trivial != columnFree {
+			t.Fatalf("IsTrivial(Raw(%q))=%v but rawIdentifierCount=%v", sql, trivial, columnFree)
+		}
+	})
+}
+
 func FuzzRawNoOrdinal(f *testing.F) {
 	f.Add("plain text")
 	f.Add("$1")
