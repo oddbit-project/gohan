@@ -329,6 +329,7 @@ struct's exported fields via `GetStructMeta`, honouring these struct tags:
 | `UPDATE` statement | yes | yes | no |
 | `ILIKE` | yes | no (use case-insensitive `LIKE`) | yes |
 | `UNION` keyword | `UNION` | `UNION` | `UNION DISTINCT` |
+| `FOR UPDATE`/`FOR SHARE` | yes | no | no |
 | `FINAL`/`SAMPLE`/`ARRAY JOIN`/`PREWHERE`/`SETTINGS` | no | no | yes |
 | Bound-argument limit | 65535 | 32766 | none |
 

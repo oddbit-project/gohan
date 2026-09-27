@@ -99,6 +99,10 @@ for _, d := range []gohan.Dialect{gohan.Postgres(), gohan.SQLite(), gohan.ClickH
 
 Using a clause the dialect does not have fails at `Build` with `ErrUnsupported`.
 
+`FeatureLocking` (row locking — see [Row locking](select.md#row-locking)) is set only on
+`Postgres()`; `SQLite()`, `ClickHouse()`, `ClickHouseNamed()` and `Generic()` all report
+`d.Has(gohan.FeatureLocking) == false`.
+
 `Dialect.QuoteIdent(name)` quotes a name for hand-written SQL such as DDL. Dots separate qualified
 parts, `*` is kept as is, and quote characters inside a part are escaped:
 

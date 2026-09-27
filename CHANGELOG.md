@@ -33,6 +33,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   value to `clickhouse.DateNamed(name, t, scale)` before executing — the only way to keep
   `DateTime64` sub-second precision through clickhouse-go. Not added to the default driver
   registry. See [Named parameters](docs/dialects.md#named-parameters).
+- Row-locking clauses on `SelectBuilder`: `ForUpdate`, `ForNoKeyUpdate`, `ForShare`, `ForKeyShare`
+  (each with optional `OF` names), and `SkipLocked`/`NoWait`. PostgreSQL only (`FeatureLocking`);
+  fails with `ErrUnsupported` elsewhere, and with `ErrInvalidLock` combined with `DISTINCT`,
+  `GROUP BY`/`HAVING` or `UNION`. See [Row locking](docs/select.md#row-locking).
 
 ### Fixed
 

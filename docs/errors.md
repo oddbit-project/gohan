@@ -35,11 +35,12 @@ fmt.Println(err)
 | `ErrInvalidColumn` | a select-list, `GROUP BY` or `RETURNING` item that is neither a string nor an expression; an `ORDER BY` item that is not a string, `Value` or `Order`; a statement builder, `TableRef` or `Subquery` passed as a value |
 | `ErrNoWhere` | `UPDATE`/`DELETE` without a `WHERE`, or with one that is always true, and without `All()` |
 | `ErrInvalidLimit` | `LIMIT`/`OFFSET` above `math.MaxInt64` (not on ClickHouse) |
-| `ErrCompoundPart` | a `UNION` member with its own `ORDER BY`, `LIMIT`, `OFFSET`, `WITH`, `SETTINGS` or `UNION` |
+| `ErrCompoundPart` | a `UNION` member with its own `ORDER BY`, `LIMIT`, `OFFSET`, `WITH`, `SETTINGS`, `UNION` or a row-locking clause |
 | `ErrEmptyClause` | `ArrayJoin`/`LeftArrayJoin`, `JoinUsing`/`LeftJoinUsing` with no columns |
 | `ErrInvalidSample` | `Sample` ratio outside (0, 1] or not finite; `SampleRows(0)` |
 | `ErrInvalidSetting` | a `Settings` key not matching `^[A-Za-z_][A-Za-z0-9_]*$` |
 | `ErrTooManyArgs` | more bound arguments than the dialect's limit |
+| `ErrInvalidLock` | `ForUpdate`/`ForShare`/etc. combined with `Distinct`, `GroupBy`, `Having` or `UNION`; `SkipLocked`/`NoWait` with no preceding lock clause, or set twice on the same clause |
 
 ### Writes
 

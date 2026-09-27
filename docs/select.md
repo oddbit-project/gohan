@@ -9,6 +9,7 @@
 - [GROUP BY and HAVING](#group-by-and-having)
 - [Subqueries](#subqueries)
 - [Common table expressions](#common-table-expressions)
+- [Row locking](#row-locking)
 - [UNION](#union)
 
 ClickHouse-only clauses (`FINAL`, `SAMPLE`, `ARRAY JOIN`, `PREWHERE`, `SETTINGS`) are covered in
@@ -272,6 +273,55 @@ sql, args, err := gohan.Select("id").
 // sql: WITH RECURSIVE "tree" AS (SELECT "id", "parent_id" FROM "categories" WHERE "id" = $1 UNION ALL SELECT "c"."id", "c"."parent_id" FROM "categories" AS "c" INNER JOIN "tree" ON "c"."parent_id" = "tree"."id") SELECT "id" FROM "tree"
 // args: [1]
 ```
+
+## Row locking
+
+`ForUpdate`, `ForNoKeyUpdate`, `ForShare` and `ForKeyShare` add a row-locking clause, each taking
+optional `OF` names. `SkipLocked`/`NoWait` set the wait policy of the most recently added clause.
+PostgreSQL only — every other dialect fails at `Build` with `ErrUnsupported`.
+
+The standard job-queue query — lock the next unclaimed row, skipping any row a concurrent worker
+already has locked:
+
+```go
+sql, args, err := gohan.From("jobs").
+	Where(gohan.Col("state").Eq("new")).
+	OrderBy(gohan.Col("id").Asc()).
+	Limit(1).
+	ForUpdate().
+	SkipLocked().
+	Build(gohan.Postgres())
+// sql: SELECT * FROM "jobs" WHERE "state" = $1 ORDER BY "id" ASC LIMIT 1 FOR UPDATE SKIP LOCKED
+// args: [new]
+```
+
+`OF` names the FROM item to lock, exactly as it appears in the query — the alias when the table is
+aliased, not the table name:
+
+```go
+t := gohan.Table("accounts").As("a")
+u := gohan.Table("transfers").As("u")
+
+sql, args, err := gohan.From(t).
+	Join(u, u.Col("account_id").Eq(t.Col("id"))).
+	ForShare("a").
+	Build(gohan.Postgres())
+// sql: SELECT * FROM "accounts" AS "a" INNER JOIN "transfers" AS "u" ON "u"."account_id" = "a"."id" FOR SHARE OF "a"
+// args: []
+```
+
+`For*` may be called more than once to add several clauses (`FOR UPDATE OF "x" FOR SHARE OF "u"`).
+gohan does not check that an `OF` name matches a FROM item; PostgreSQL does, and rejects a bare
+table name where an alias was used.
+
+PostgreSQL itself rejects locking together with `UNION`/`INTERSECT`/`EXCEPT`, `DISTINCT`,
+`GROUP BY`/`HAVING`, aggregates or window functions. gohan detects the first four at `Build` and
+fails with `ErrInvalidLock` (cheaper than a round trip); aggregates and window functions in the
+select list are left to the database. `SkipLocked`/`NoWait` also fail with `ErrInvalidLock` when
+called with no preceding lock clause, or twice on the same clause.
+
+A lock clause on a builder used as a CTE, subquery or FROM source renders in place and is accepted
+by PostgreSQL there.
 
 ## UNION
 
