@@ -149,6 +149,9 @@ func TestLockSkipLockedAndNoWait(t *testing.T) {
 	txB, err := e.db.Begin()
 	require.NoError(t, err)
 	defer txB.Rollback()
+	// fail instead of hanging if SKIP LOCKED ever stops skipping tx A's row
+	_, err = txB.Exec("SET LOCAL lock_timeout = '5s'")
+	require.NoError(t, err)
 
 	pick := gohan.From(tbl).Where(gohan.Col("state").Eq("new")).OrderBy("id").Limit(1).ForUpdate().SkipLocked()
 	q, args, err := pick.Build(e.dialect)
