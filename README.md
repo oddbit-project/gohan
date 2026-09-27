@@ -1,5 +1,12 @@
 # gohan
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/oddbit-project/gohan.svg)](https://pkg.go.dev/github.com/oddbit-project/gohan)
+[![test](https://github.com/oddbit-project/gohan/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/oddbit-project/gohan/actions/workflows/test.yml)
+[![Security scan and SBOM](https://github.com/oddbit-project/gohan/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/oddbit-project/gohan/actions/workflows/security.yml)
+[![Release](https://img.shields.io/github/v/release/oddbit-project/gohan)](https://github.com/oddbit-project/gohan/releases/latest)
+[![License](https://img.shields.io/github/license/oddbit-project/gohan)](LICENSE)
+[![Go version](https://img.shields.io/github/go-mod/go-version/oddbit-project/gohan)](go.mod)
+
 `gohan` is a SQL query builder where values are always bound and identifiers are always quoted
 and escaped by construction, so a caller cannot reintroduce SQL injection through the normal API.
 
@@ -11,6 +18,20 @@ and escaped by construction, so a caller cannot reintroduce SQL injection throug
 ```
 go get github.com/oddbit-project/gohan
 ```
+
+## Documentation
+
+- [docs/](docs/README.md): guides for [getting started](docs/getting-started.md),
+  [SELECT](docs/select.md), [INSERT and upsert](docs/insert-and-upsert.md),
+  [UPDATE and DELETE](docs/update-and-delete.md), [expressions](docs/expressions.md),
+  [raw SQL and escape hatches](docs/raw-and-escape-hatches.md), [dialects](docs/dialects.md),
+  [records and struct tags](docs/records-and-struct-tags.md),
+  [the security model](docs/security-model.md) and [errors](docs/errors.md).
+- [API reference](https://pkg.go.dev/github.com/oddbit-project/gohan) on pkg.go.dev, with a
+  runnable example for most functions and methods.
+- [examples/](examples/README.md): end-to-end programs for [SQLite](examples/sqlite/),
+  [PostgreSQL](examples/postgres/) and [ClickHouse](examples/clickhouse/), in a separate Go module
+  so `gohan` itself gains no driver dependencies.
 
 ## Overview
 
@@ -31,7 +52,7 @@ Whether a Go `string` is treated as a column name or as a bound value depends on
 - **Column position**: the argument to `Count`, `Sum`, `Avg`, `Min`, `Max`, select-list columns,
   `GROUP BY`, `ORDER BY`, and `INSERT`/`UPDATE` column names — a string there is a column name.
 - **Value position**: comparison right-hand sides, `Fn` arguments, `Raw` arguments, `Cast`'s
-  value, `Case`'s `WHEN`/`THEN`/`ELSE`, and `Val` — a string there is a bound value. Pass
+  value, `Case`'s `THEN`/`ELSE`, and `Val` — a string there is a bound value. Pass
   `Col("x")` when a column is meant.
 
 ## SELECT, WHERE, ORDER BY, LIMIT
@@ -224,7 +245,8 @@ cannot map unambiguously, rather than silently mapping the wrong column:
 
 - an embedded pointer struct, an unexported or explicitly tagged embedded struct, or an
   ambiguous promoted field name — `ErrRecordShape`;
-- the same column set more than once — `ErrDuplicateColumn`.
+- the same column mapped by two fields — `ErrRecordShape` in most layouts, `ErrDuplicateColumn`
+  when the second field comes from an embedded struct.
 
 ## Struct tags
 
@@ -245,8 +267,8 @@ struct's exported fields via `GetStructMeta`, honouring these struct tags:
   `Searchable`, for callers that expose a struct through a sortable/filterable listing.
   `grid:"auto"` is an alias for `auto:"true"`. Any other value in a `grid` tag is kept as a
   `DbOptions` entry.
-- `json:"name"`, `xml:"name"`, `alias:"name"` — the field's `Alias` (checked in that order;
-  `alias` wins over `json`/`xml`). Defaults to the Go field name.
+- `json:"name"`, `xml:"name"`, `alias:"name"` — the field's `Alias` (the first present of
+  `alias`, `json`, `xml`). Defaults to the Go field name.
 - Reserved types: a struct-typed field whose type name is registered as "reserved"
   (`time.Time` by default) is treated as a leaf value, not recursed into as an embedded struct.
   `field.AddReservedType(name)` registers another type (e.g. a custom time or UUID wrapper);
@@ -273,7 +295,9 @@ struct's exported fields via `GetStructMeta`, honouring these struct tags:
 
 - `Raw`'s SQL text, `Fn`'s function name and `Cast`'s type string are trusted input: never build
   them from request data — nothing downstream escapes them.
-- ClickHouse has no `UPDATE`, `RETURNING`, `ON CONFLICT` upsert, or transactions.
+- The ClickHouse dialect does not build `UPDATE` (including the lightweight `UPDATE` of recent
+  ClickHouse versions), `RETURNING` or `ON CONFLICT` upsert, and ClickHouse has no general-purpose
+  transactions.
 - ClickHouse's lightweight `DELETE` does not work on Distributed tables or tables with
   projections — a `gohan`-built `DELETE` still sends valid SQL, but whether ClickHouse accepts it
   depends on the table engine.
@@ -289,7 +313,8 @@ Every push, pull request and weekly schedule runs [Trivy](https://trivy.dev) ove
 (vulnerabilities, secrets, misconfigurations; results in GitHub code scanning) and over a
 CycloneDX SBOM generated with `cyclonedx-gomod`; CRITICAL/HIGH findings fail the build. Tagged
 releases carry `sbom.json`. Gohan has no runtime dependencies, so its SBOM lists no components —
-test-only dependencies are still covered by the repository scan. Locally: `make sbom`, `make scan`.
+test-only dependencies and the drivers used by the separate `examples/` module are still covered
+by the repository scan. Locally: `make sbom`, `make scan`.
 
 ## License
 

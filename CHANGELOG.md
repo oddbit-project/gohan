@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `docs/`: topic guides (getting started, SELECT, INSERT and upsert, UPDATE and DELETE,
+  expressions, raw SQL and escape hatches, dialects, records and struct tags, security model,
+  errors), with every SQL string and argument list taken from real output.
+- Runnable godoc examples for most exported functions and methods of `gohan` and `field`, checked
+  by `go test`.
+- `examples/`: a separate Go module with end-to-end programs for SQLite (`modernc.org/sqlite`),
+  PostgreSQL (`pgx` stdlib) and ClickHouse (`clickhouse-go` v2); `gohan`'s own dependencies are
+  unchanged.
+- README badges (pkg.go.dev, test and security workflows, release, license, Go version) and links
+  to the docs and examples.
+- CI and `make test` vet and build the examples module and run the SQLite example.
+
+### Fixed
+
+- README: `Case`'s `WHEN` is a condition, not a value position; the alias tag precedence is
+  `alias`, `json`, `xml`; a column mapped by two fields usually fails with `ErrRecordShape`, not
+  `ErrDuplicateColumn`; the ClickHouse dialect's lack of `UPDATE` is a `gohan` limitation, since
+  recent ClickHouse versions have a lightweight `UPDATE`.
+
 ## [v0.1.0] - 2026-09-27
 
 ### Added

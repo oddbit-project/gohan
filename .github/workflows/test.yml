@@ -12,6 +12,16 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: '1.26.5'
+          cache-dependency-path: |
+            go.sum
+            examples/go.sum
       - run: go vet ./...
+      # gofmt walks every directory, so this also covers the examples module
       - run: test -z "$(gofmt -l .)"
       - run: go test -race ./...
+      - name: Vet and build examples
+        working-directory: examples
+        run: go vet ./... && go build ./...
+      - name: Run SQLite example
+        working-directory: examples
+        run: go run ./sqlite
