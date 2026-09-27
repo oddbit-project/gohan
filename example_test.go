@@ -89,6 +89,37 @@ func ExampleSelectBuilder_Union() {
 	// SELECT "id" FROM "t1" UNION DISTINCT SELECT "id" FROM "t2" <nil>
 }
 
+// ExampleSelectBuilder_ForUpdate builds the standard PostgreSQL job-queue
+// query: lock the next unclaimed row and skip any row a concurrent worker
+// already has locked.
+func ExampleSelectBuilder_ForUpdate() {
+	sql, args, err := gohan.From("jobs").
+		Where(gohan.Col("state").Eq("new")).
+		OrderBy(gohan.Col("id").Asc()).
+		Limit(1).
+		ForUpdate().
+		SkipLocked().
+		Build(gohan.Postgres())
+	fmt.Println(sql, args, err)
+	// Output:
+	// SELECT * FROM "jobs" WHERE "state" = $1 ORDER BY "id" ASC LIMIT 1 FOR UPDATE SKIP LOCKED [new] <nil>
+}
+
+// ExampleSelectBuilder_ForShare locks the joined rows for share, naming
+// which FROM item each clause applies to with OF.
+func ExampleSelectBuilder_ForShare() {
+	t := gohan.Table("accounts").As("a")
+	u := gohan.Table("transfers").As("u")
+
+	sql, args, err := gohan.From(t).
+		Join(u, u.Col("account_id").Eq(t.Col("id"))).
+		ForShare("a").
+		Build(gohan.Postgres())
+	fmt.Println(sql, args, err)
+	// Output:
+	// SELECT * FROM "accounts" AS "a" INNER JOIN "transfers" AS "u" ON "u"."account_id" = "a"."id" FOR SHARE OF "a" [] <nil>
+}
+
 // ExampleCase shows Int for an integer constant inside a CASE expression:
 // on PostgreSQL, a bound constant here would be typed as text and fail
 // SUM's type check ("function sum(text) does not exist"), so integer
