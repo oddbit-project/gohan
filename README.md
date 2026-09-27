@@ -77,7 +77,10 @@ go get github.com/oddbit-project/gohan
   value and never mutates the receiver.
 - Three built-in dialects: `gohan.Postgres()`, `gohan.SQLite()`, `gohan.ClickHouse()` (plus
   `gohan.Generic()`, ANSI SQL — never register it for MySQL, where a double-quoted string is a
-  literal, not an identifier).
+  literal, not an identifier). `gohan.ClickHouseNamed()` is a fourth, opt-in ClickHouse variant
+  with `@pN` named placeholders — see [Named parameters](docs/dialects.md#named-parameters); it
+  exists because clickhouse-go's positional `?` binding silently truncates a bound `time.Time` to
+  seconds precision, losing the sub-second part of a `DateTime64` column.
 - `Build(dialect) (string, []any, error)` renders a statement; nothing runs a query — `gohan`
   has no I/O.
 - The `field` subpackage (`github.com/oddbit-project/gohan/field`) extracts struct metadata for
@@ -328,6 +331,10 @@ struct's exported fields via `GetStructMeta`, honouring these struct tags:
 | `UNION` keyword | `UNION` | `UNION` | `UNION DISTINCT` |
 | `FINAL`/`SAMPLE`/`ARRAY JOIN`/`PREWHERE`/`SETTINGS` | no | no | yes |
 | Bound-argument limit | 65535 | 32766 | none |
+
+`gohan.ClickHouseNamed()` is the same dialect with `@pN` named placeholders and `sql.NamedArg`
+arguments instead of `?` and bare values — everything else in the table above still applies. Use
+it to keep `DateTime64` sub-second precision (see [Named parameters](docs/dialects.md#named-parameters)).
 
 ## Limitations
 

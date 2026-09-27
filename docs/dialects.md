@@ -300,6 +300,52 @@ sql, args, err := gohan.Select("u.id", "o.id").
 // args: [1]
 ```
 
+### Time precision
+
+clickhouse-go formats a bound `time.Time` at **seconds precision** when binding positional `?`
+placeholders (measured against clickhouse-go v2.40.3 and v2.48.0), so a `DateTime64(3/6/9)` column
+silently loses its sub-second part on insert and in `WHERE` comparisons. This is a property of
+clickhouse-go's positional binding, not of `gohan`'s rendering. Use `ClickHouseNamed` below to keep
+full precision.
+
+### Named parameters
+
+`ClickHouseNamed()` returns the same dialect as `ClickHouse()` (same identifier quoting, feature
+set and argument limit) but renders each bound value as `@p1`, `@p2`, … instead of `?`, and returns
+it as a `sql.NamedArg{Name: "p1", Value: v}` instead of the bare value. It is not in the default
+driver registry; call `gohan.Register` if you want it looked up by driver name.
+
+This is the only way to keep `DateTime64` sub-second precision through clickhouse-go: the driver's
+client-side `@name` binding calls `clickhouse.DateNamed(name, t, scale)` when the caller converts
+the argument, which formats the value at the scale you choose instead of truncating it to seconds.
+Convert each `time.Time` argument after `Build` and before passing args to `database/sql`:
+
+```go
+q, args, err := st.Build(gohan.ClickHouseNamed())
+for i, a := range args {
+    na := a.(sql.NamedArg)
+    if t, ok := na.Value.(time.Time); ok {
+        args[i] = clickhouse.DateNamed(na.Name, t, clickhouse.NanoSeconds)
+    }
+}
+rows, err := db.QueryContext(ctx, q, args...)
+```
+
+For clickhouse-go's native API (`clickhouse.Conn`, not `database/sql`), convert every
+`sql.NamedArg` to `clickhouse.Named(na.Name, na.Value)` instead — the native API's binder
+recognizes only its own `driver.NamedValue`/`driver.NamedDateValue` types, not `sql.NamedArg`
+(observed: passing a raw `sql.NamedArg` to `conn.Exec` fails with a parse error, since the
+placeholder is left unsubstituted).
+
+`Raw` text must not contain `@` followed by a letter, digit or `_` in named mode
+(`ErrRawPlaceholder`): clickhouse-go v2.40.3 substitutes such a token even inside a string literal,
+so `Raw("'@p1' = x")` is rejected on `ClickHouseNamed()` even though the same text is accepted on
+`ClickHouse()`.
+
+Server-side `{name:Type}` query parameters are not supported by this mode (or by `gohan` at all):
+their string escaping differs between clickhouse-go versions, they cannot be mixed with `?` in one
+statement, and `{...:...}` text breaks positional binding even inside a string literal.
+
 ## Generic
 
 `Generic()` is ANSI SQL: double-quoted identifiers, `?` placeholders, `UPDATE`, and none of the

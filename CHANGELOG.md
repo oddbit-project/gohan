@@ -28,6 +28,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Documentation site at https://oddbit-project.github.io/gohan/, built from `docs/` with MkDocs
   (`mkdocs.yml`, pinned in `requirements-docs.txt`) and deployed by the `docs` workflow on pushes
   to main.
+- `gohan.ClickHouseNamed()`: a ClickHouse dialect variant with `@pN` named placeholders and
+  `sql.NamedArg` arguments instead of `?` and bare values. Convert a `sql.NamedArg`'s `time.Time`
+  value to `clickhouse.DateNamed(name, t, scale)` before executing — the only way to keep
+  `DateTime64` sub-second precision through clickhouse-go. Not added to the default driver
+  registry. See [Named parameters](docs/dialects.md#named-parameters).
 
 ### Fixed
 
@@ -35,6 +40,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   `alias`, `json`, `xml`; a column mapped by two fields usually fails with `ErrRecordShape`, not
   `ErrDuplicateColumn`; the ClickHouse dialect's lack of `UPDATE` is a `gohan` limitation, since
   recent ClickHouse versions have a lightweight `UPDATE`.
+- Documented (not fixed — no `gohan`-side fix is possible): the default `ClickHouse()` dialect's
+  positional `?` binding truncates a bound `time.Time` to seconds precision through clickhouse-go,
+  silently losing the sub-second part of a `DateTime64(3/6/9)` column on insert and in `WHERE`
+  comparisons (measured against clickhouse-go v2.40.3 and v2.48.0). Use `ClickHouseNamed()` to
+  keep full precision.
 
 ## [v0.1.0] - 2026-09-27
 
