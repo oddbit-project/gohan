@@ -1,4 +1,4 @@
-package sqlb
+package gohan
 
 // join is a single JOIN clause: t: string, TableRef or Subquery (as From).
 // Either on (an ON condition) or using (a USING column list) is set, never

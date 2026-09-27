@@ -1,4 +1,4 @@
-package sqlb
+package gohan
 
 import (
 	"fmt"
@@ -72,7 +72,7 @@ func (s *SelectBuilder) UnionAll(q *SelectBuilder) *SelectBuilder {
 // IsCompound reports whether s has any UNION members. Where/Having/
 // Prewhere called on a compound builder apply to the first member's core
 // only, while ORDER BY/LIMIT/OFFSET apply to the whole compound; callers
-// that need filters applied to the whole result set (e.g. dbx.Grid)
+// that need filters applied to the whole result set (e.g. a repository layer)
 // should reject a compound base query.
 func (s *SelectBuilder) IsCompound() bool {
 	return len(s.unions) > 0

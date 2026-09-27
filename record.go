@@ -1,10 +1,10 @@
-package sqlb
+package gohan
 
 import (
 	"fmt"
 	"reflect"
 
-	"github.com/oddbit-project/blueprint/db/field"
+	"github.com/oddbit-project/gohan/field"
 )
 
 // recordOptions configures how recordValues maps a record's fields to
@@ -118,7 +118,7 @@ func fieldPaths(t reflect.Type, prefix []int) ([][]int, error) {
 // recordMeta returns t's field metadata and matching field-index paths,
 // after the shape checks in fieldPaths and two global checks
 // field.GetStructMeta does not perform: two fields promoted to the same Go
-// name (ErrRecordShape - qb resolves this ambiguously via FieldByName) and
+// name (ErrRecordShape - a naive implementation resolves this ambiguously via FieldByName) and
 // two fields mapped to the same db column (ErrDuplicateColumn), wherever in
 // the struct they occur.
 func recordMeta(t reflect.Type) ([]field.Metadata, [][]int, error) {

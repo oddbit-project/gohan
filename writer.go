@@ -1,4 +1,4 @@
-package sqlb
+package gohan
 
 import (
 	"database/sql/driver"
@@ -37,7 +37,7 @@ func (w *writer) fail(err error) {
 
 var clickHouseIdentBan = regexp.MustCompile(`\$[0-9]`)
 
-// ident writes a quoted, escaped identifier. See sqlb/dialect.go for the
+// ident writes a quoted, escaped identifier. See dialect.go for the
 // rules by dialect.
 func (w *writer) ident(name string) {
 	if w.err != nil {
@@ -214,7 +214,7 @@ func (w *writer) arg(v any) {
 // encountered. Calling finish twice is a programming error and panics.
 func (w *writer) finish() (string, []any, error) {
 	if w.done {
-		panic("sqlb: writer.finish called twice")
+		panic("gohan: writer.finish called twice")
 	}
 	w.done = true
 	if w.err != nil {

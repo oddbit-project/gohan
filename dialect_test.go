@@ -1,4 +1,4 @@
-package sqlb
+package gohan
 
 import (
 	"errors"
@@ -91,13 +91,13 @@ func TestDialectForUnknown(t *testing.T) {
 }
 
 func TestRegisterOverrides(t *testing.T) {
-	Register("sqlb-test-driver", SQLite())
-	d, err := DialectFor("sqlb-test-driver")
+	Register("gohan-test-driver", SQLite())
+	d, err := DialectFor("gohan-test-driver")
 	assert.NoError(t, err)
 	assert.Equal(t, "sqlite", d.Name())
 
-	Register("sqlb-test-driver", Postgres())
-	d, err = DialectFor("sqlb-test-driver")
+	Register("gohan-test-driver", Postgres())
+	d, err = DialectFor("gohan-test-driver")
 	assert.NoError(t, err)
 	assert.Equal(t, "postgres", d.Name())
 }

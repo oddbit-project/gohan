@@ -1,4 +1,4 @@
-// Package sqlb is a SQL query builder where values are always bound and
+// Package gohan is a SQL query builder where values are always bound and
 // identifiers are always quoted and escaped by construction, so a caller
 // cannot reintroduce SQL injection through the normal API.
 //
@@ -22,4 +22,4 @@
 //
 // On SQLite, LIKE is ASCII case-insensitive; on PostgreSQL, ClickHouse and
 // Generic, LIKE is case-sensitive.
-package sqlb
+package gohan
