@@ -5,3 +5,4 @@
 # security scan output
 sbom.json
 trivy-results.sarif
+site/

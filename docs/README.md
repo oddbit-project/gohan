@@ -25,5 +25,5 @@ Every SQL string and argument list in these pages is copied from real `gohan` ou
 
 - [API reference on pkg.go.dev](https://pkg.go.dev/github.com/oddbit-project/gohan): every exported
   symbol, with runnable examples.
-- [Runnable examples](../examples/): end-to-end programs for SQLite, PostgreSQL and ClickHouse.
-- [Project README](../README.md) and [security policy](../SECURITY.md).
+- [Runnable examples](https://github.com/oddbit-project/gohan/tree/main/examples): end-to-end programs for SQLite, PostgreSQL and ClickHouse.
+- [Project README](https://github.com/oddbit-project/gohan/blob/main/README.md) and [security policy](https://github.com/oddbit-project/gohan/blob/main/SECURITY.md).

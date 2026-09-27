@@ -6,6 +6,7 @@
 [![Release](https://img.shields.io/github/v/release/oddbit-project/gohan)](https://github.com/oddbit-project/gohan/releases/latest)
 [![License](https://img.shields.io/github/license/oddbit-project/gohan)](LICENSE)
 [![Go version](https://img.shields.io/github/go-mod/go-version/oddbit-project/gohan)](go.mod)
+[![docs](https://github.com/oddbit-project/gohan/actions/workflows/docs.yml/badge.svg?branch=main)](https://oddbit-project.github.io/gohan/)
 
 `gohan` is a SQL query builder where values are always bound and identifiers are always quoted
 and escaped by construction, so a caller cannot reintroduce SQL injection through the normal API.
@@ -21,6 +22,7 @@ go get github.com/oddbit-project/gohan
 
 ## Documentation
 
+- **[oddbit-project.github.io/gohan](https://oddbit-project.github.io/gohan/)**: the guides below, published as a site.
 - [docs/](docs/README.md): guides for [getting started](docs/getting-started.md),
   [SELECT](docs/select.md), [INSERT and upsert](docs/insert-and-upsert.md),
   [UPDATE and DELETE](docs/update-and-delete.md), [expressions](docs/expressions.md),

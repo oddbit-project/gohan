@@ -22,6 +22,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `fuzz` workflow: runs each fuzz target (`FuzzIdentRoundTrip`, `FuzzValueNeverInlined`,
   `FuzzRawNoOrdinal`) for 60s on pushes to main and pull requests, and for 10 minutes weekly;
   failing inputs are uploaded as an artifact. `make fuzz` runs them locally.
+- Documentation site at https://oddbit-project.github.io/gohan/, built from `docs/` with MkDocs
+  (`mkdocs.yml`, pinned in `requirements-docs.txt`) and deployed by the `docs` workflow on pushes
+  to main.
 
 ### Fixed
 

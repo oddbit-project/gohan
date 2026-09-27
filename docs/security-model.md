@@ -4,7 +4,7 @@
 and identifiers are always quoted**. This page describes how that holds, where it deliberately
 does not, and what stays the caller's responsibility.
 
-To report a vulnerability, see [SECURITY.md](../SECURITY.md).
+To report a vulnerability, see [SECURITY.md](https://github.com/oddbit-project/gohan/blob/main/SECURITY.md).
 
 ## What is guaranteed
 

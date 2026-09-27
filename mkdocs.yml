@@ -1,0 +1,63 @@
+site_name: gohan
+site_description: A SQL query builder for Go where values are always bound and identifiers always quoted
+site_url: https://oddbit-project.github.io/gohan/
+
+repo_name: oddbit-project/gohan
+repo_url: https://github.com/oddbit-project/gohan
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/lightbulb
+        name: Switch to light mode
+    - scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/lightbulb-outline
+        name: Switch to dark mode
+  features:
+    - navigation.top
+    - navigation.sections
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.action.edit
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      # GitHub-style anchors, so links work both on GitHub and on the site
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+
+plugins:
+  - search
+
+nav:
+  - Home: README.md
+  - Getting started: getting-started.md
+  - SELECT: select.md
+  - INSERT and upsert: insert-and-upsert.md
+  - UPDATE and DELETE: update-and-delete.md
+  - Expressions: expressions.md
+  - Raw SQL and escape hatches: raw-and-escape-hatches.md
+  - Dialects: dialects.md
+  - Records and struct tags: records-and-struct-tags.md
+  - Security model: security-model.md
+  - Errors: errors.md

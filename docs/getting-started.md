@@ -59,7 +59,7 @@ var u User
 err = db.QueryRowContext(ctx, query, args...).Scan(&u.ID, &u.Name)
 ```
 
-See [examples/](../examples/) for complete programs against SQLite, PostgreSQL and ClickHouse.
+See [examples/](https://github.com/oddbit-project/gohan/tree/main/examples) for complete programs against SQLite, PostgreSQL and ClickHouse.
 
 ## Choosing a dialect
 
