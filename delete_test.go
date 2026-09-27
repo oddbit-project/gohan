@@ -82,8 +82,11 @@ func TestDeleteTrivialWhere(t *testing.T) {
 	assert.Equal(t, `DELETE FROM "t" WHERE NOT ("id" IN ($1))`, sql)
 	assert.Equal(t, []any{1}, args)
 
-	// Raw is explicit and trusted: it is never treated as trivial.
-	sql, args, err = Delete("t").Where(Raw("1=1")).Build(Postgres())
+	// A column-free condition, including a Raw constant, is trivial: it
+	// requires All() the same as an empty WHERE would.
+	_, _, err = Delete("t").Where(Raw("1=1")).Build(Postgres())
+	assert.True(t, errors.Is(err, ErrNoWhere))
+	sql, args, err = Delete("t").Where(Raw("1=1")).All().Build(Postgres())
 	require.NoError(t, err)
 	assert.Equal(t, `DELETE FROM "t" WHERE (1=1)`, sql)
 	assert.Equal(t, []any{}, args)

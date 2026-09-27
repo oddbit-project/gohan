@@ -97,7 +97,7 @@ func (d *DeleteBuilder) renderDelete(w *writer) {
 		whereExpr = And(d.where...)
 	}
 	switch {
-	case hasWhere && (d.all || !whereExpr.trivial):
+	case hasWhere && (d.all || !IsTrivial(whereExpr)):
 		w.keyword(" WHERE ")
 		renderExpr(w, whereExpr)
 	case hasWhere:

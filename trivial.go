@@ -22,7 +22,7 @@ func isIdentPart(b byte) bool {
 // validateRaw) and counts tokens that look like column/table references:
 // bare words other than a small operator-keyword allowlist, and any
 // double-quoted or backtick-quoted token. Single-quoted string literals
-// (with '' escapes) and numbers are skipped, not counted.
+// (with ” escapes) and numbers are skipped, not counted.
 func rawIdentifierCount(sql string) int {
 	count := 0
 	n := len(sql)

@@ -165,7 +165,7 @@ func (b *UpdateBuilder) renderUpdate(w *writer) {
 		whereExpr = And(b.where...)
 	}
 	switch {
-	case hasWhere && (b.all || !whereExpr.trivial):
+	case hasWhere && (b.all || !IsTrivial(whereExpr)):
 		w.keyword(" WHERE ")
 		renderExpr(w, whereExpr)
 	case hasWhere:
