@@ -324,3 +324,95 @@ func TestQuoteIdent(t *testing.T) {
 	_, err = Postgres().QuoteIdent("")
 	assert.True(t, errors.Is(err, ErrInvalidIdentifier))
 }
+
+func TestClickHouseNamed(t *testing.T) {
+	t.Run("golden select", func(t *testing.T) {
+		q, args, err := Select("id").From("t").
+			Where(Col("a").Eq("x"), Col("b").In(1, 2)).
+			Limit(5).
+			Build(ClickHouseNamed())
+		require.NoError(t, err)
+		assert.Equal(t, `SELECT "id" FROM "t" WHERE ("a" = @p1 AND "b" IN (@p2, @p3)) LIMIT 5`, q)
+		assert.Equal(t, []any{
+			sql.NamedArg{Name: "p1", Value: "x"},
+			sql.NamedArg{Name: "p2", Value: 1},
+			sql.NamedArg{Name: "p3", Value: 2},
+		}, args)
+	})
+
+	t.Run("two-digit arg names", func(t *testing.T) {
+		w := &writer{d: ClickHouseNamed()}
+		for i := 0; i < 10; i++ {
+			w.arg(i)
+		}
+		got, args, err := w.finish()
+		require.NoError(t, err)
+		assert.Contains(t, got, "@p10")
+		require.Len(t, args, 10)
+		assert.Equal(t, sql.NamedArg{Name: "p10", Value: 9}, args[9])
+	})
+
+	t.Run("raw ? placeholder", func(t *testing.T) {
+		q, args, err := render(ClickHouseNamed(), Raw("x = ?", 1))
+		require.NoError(t, err)
+		assert.Equal(t, "x = @p1", q)
+		assert.Equal(t, []any{sql.NamedArg{Name: "p1", Value: 1}}, args)
+	})
+
+	t.Run("raw @ rejected in named mode", func(t *testing.T) {
+		_, _, err := render(ClickHouseNamed(), Raw("a@b = 1"))
+		assert.True(t, errors.Is(err, ErrRawPlaceholder))
+
+		_, _, err = render(ClickHouseNamed(), Raw("'@p1' = x"))
+		assert.True(t, errors.Is(err, ErrRawPlaceholder))
+	})
+
+	t.Run("raw @ accepted on ClickHouse", func(t *testing.T) {
+		_, _, err := render(ClickHouse(), Raw("a@b = 1"))
+		assert.NoError(t, err)
+
+		_, _, err = render(ClickHouse(), Raw("'@p1' = x"))
+		assert.NoError(t, err)
+	})
+
+	t.Run("unsafe value rejected", func(t *testing.T) {
+		w := &writer{d: ClickHouseNamed()}
+		w.arg(map[string]int{"k": 1})
+		_, _, err := w.finish()
+		assert.True(t, errors.Is(err, ErrUnsafeValue))
+	})
+
+	t.Run("nil-pointer Valuer bound as nil NamedArg", func(t *testing.T) {
+		w := &writer{d: ClickHouseNamed()}
+		var p *sql.NullString
+		w.arg(p)
+		_, args, err := w.finish()
+		require.NoError(t, err)
+		assert.Equal(t, []any{sql.NamedArg{Name: "p1", Value: nil}}, args)
+	})
+
+	t.Run("Settings", func(t *testing.T) {
+		q, args, err := From("events").
+			Limit(100).
+			Settings(map[string]any{"max_threads": 2}).
+			Build(ClickHouseNamed())
+		require.NoError(t, err)
+		assert.Equal(t, `SELECT * FROM "events" LIMIT 100 SETTINGS max_threads = @p1`, q)
+		assert.Equal(t, []any{sql.NamedArg{Name: "p1", Value: 2}}, args)
+	})
+
+	t.Run("ClickHouse output unchanged", func(t *testing.T) {
+		build := func(d Dialect) (string, []any, error) {
+			return Select("id").From("t").
+				Where(Col("a").Eq("x"), Col("b").In(1, 2)).
+				Limit(5).
+				Build(d)
+		}
+		wantSQL, wantArgs, wantErr := build(ClickHouse())
+		gotSQL, gotArgs, gotErr := build(ClickHouse())
+		assert.Equal(t, wantSQL, gotSQL)
+		assert.Equal(t, wantArgs, gotArgs)
+		assert.Equal(t, wantErr, gotErr)
+		assert.Equal(t, `SELECT "id" FROM "t" WHERE ("a" = ? AND "b" IN (?, ?)) LIMIT 5`, gotSQL)
+	})
+}

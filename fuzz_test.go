@@ -1,6 +1,7 @@
 package gohan
 
 import (
+	stdsql "database/sql"
 	"strings"
 	"testing"
 )
@@ -110,6 +111,24 @@ func FuzzValueNeverInlined(f *testing.F) {
 		}
 		if len(args) != 1 || args[0] != s {
 			t.Fatalf("got args %v", args)
+		}
+
+		namedSQL, namedArgs, err := render(ClickHouseNamed(), Col("a").Eq(s))
+		if err != nil {
+			t.Fatalf("unexpected error (named): %v", err)
+		}
+		if namedSQL != `"a" = @p1` {
+			t.Fatalf("got named sql %q", namedSQL)
+		}
+		if len(namedArgs) != 1 {
+			t.Fatalf("got named args %v", namedArgs)
+		}
+		na, ok := namedArgs[0].(stdsql.NamedArg)
+		if !ok {
+			t.Fatalf("arg is not sql.NamedArg: %T", namedArgs[0])
+		}
+		if na.Name != "p1" || na.Value != s {
+			t.Fatalf("got named arg %+v, want {p1 %q}", na, s)
 		}
 	})
 }
