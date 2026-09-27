@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- `integration/`: a separate Go module that runs gohan's rendered SQL against real PostgreSQL,
+  SQLite and ClickHouse servers (round-tripped values, LIKE escaping, UNION/ORDER BY/LIMIT,
+  upsert, DELETE, quoted identifiers), run by `make integration` and a dedicated CI job.
 - `docs/`: topic guides (getting started, SELECT, INSERT and upsert, UPDATE and DELETE,
   expressions, raw SQL and escape hatches, dialects, records and struct tags, security model,
   errors), with every SQL string and argument list taken from real output.

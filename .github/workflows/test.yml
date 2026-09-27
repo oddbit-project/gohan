@@ -25,3 +25,50 @@ jobs:
       - name: Run SQLite example
         working-directory: examples
         run: go run ./sqlite
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: gohan
+          POSTGRES_PASSWORD: gohan
+          POSTGRES_DB: gohan
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gohan"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      clickhouse:
+        image: clickhouse/clickhouse-server:26.7
+        env:
+          CLICKHOUSE_USER: gohan
+          CLICKHOUSE_PASSWORD: gohan
+          CLICKHOUSE_DB: gohan
+        ports:
+          - 9000:9000
+          - 8123:8123
+        options: >-
+          --health-cmd "wget --spider -q http://localhost:8123/ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.5'
+          cache-dependency-path: |
+            go.sum
+            examples/go.sum
+            integration/go.sum
+      - name: Vet and test integration
+        working-directory: integration
+        run: go vet ./... && go test -race -count=1 ./...
+        env:
+          GOHAN_PG_DSN: postgres://gohan:gohan@localhost:5432/gohan?sslmode=disable
+          GOHAN_CH_DSN: clickhouse://gohan:gohan@localhost:9000/gohan
+          GOHAN_REQUIRE_ENGINES: postgres,sqlite,clickhouse

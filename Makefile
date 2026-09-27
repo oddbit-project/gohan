@@ -4,15 +4,16 @@ SBOM_FILE ?= sbom.json
 FUZZTIME ?= 30s
 FUZZ_TARGETS := FuzzIdentRoundTrip FuzzValueNeverInlined FuzzRawNoOrdinal
 
-.PHONY: help test examples fuzz sbom scan sbom-clean
+.PHONY: help test examples integration fuzz sbom scan sbom-clean
 
 help:
-	@echo "make test       - vet, format check, race tests and examples"
-	@echo "make examples   - vet and build the examples module, run the SQLite example"
-	@echo "make fuzz       - run each fuzz target for $(FUZZTIME) (override with FUZZTIME=5m)"
-	@echo "make sbom       - generate a CycloneDX SBOM ($(SBOM_FILE))"
-	@echo "make scan       - Trivy scan of the SBOM and the repository (uses a local trivy, else Docker)"
-	@echo "make sbom-clean - remove generated SBOM/scan files"
+	@echo "make test        - vet, format check, race tests and examples"
+	@echo "make examples    - vet and build the examples module, run the SQLite example"
+	@echo "make integration - run the integration module against real PostgreSQL and ClickHouse"
+	@echo "make fuzz        - run each fuzz target for $(FUZZTIME) (override with FUZZTIME=5m)"
+	@echo "make sbom        - generate a CycloneDX SBOM ($(SBOM_FILE))"
+	@echo "make scan        - Trivy scan of the SBOM and the repository (uses a local trivy, else Docker)"
+	@echo "make sbom-clean  - remove generated SBOM/scan files"
 
 test:
 	go vet ./...
@@ -24,6 +25,26 @@ test:
 # dependencies of gohan; the PostgreSQL and ClickHouse examples need a server.
 examples:
 	cd examples && go vet ./... && go build ./... && go run ./sqlite
+
+# integration runs the integration module (integration/go.mod) against real
+# PostgreSQL and ClickHouse servers started in Docker; SQLite runs in-memory.
+# The containers are stopped even if the tests fail.
+integration:
+	docker run -d --rm --name gohan-pg -p 55432:5432 \
+		-e POSTGRES_USER=gohan -e POSTGRES_PASSWORD=gohan -e POSTGRES_DB=gohan \
+		postgres:17
+	docker run -d --rm --name gohan-ch -p 59000:9000 -p 58123:8123 \
+		-e CLICKHOUSE_USER=gohan -e CLICKHOUSE_PASSWORD=gohan -e CLICKHOUSE_DB=gohan \
+		clickhouse/clickhouse-server:26.7
+	@until docker exec gohan-pg pg_isready -U gohan >/dev/null 2>&1; do sleep 1; done
+	@until curl -sf http://localhost:58123/ping >/dev/null 2>&1; do sleep 1; done
+	cd integration && GOHAN_PG_DSN='postgres://gohan:gohan@localhost:55432/gohan?sslmode=disable' \
+		GOHAN_CH_DSN='clickhouse://gohan:gohan@localhost:59000/gohan' \
+		GOHAN_REQUIRE_ENGINES=postgres,sqlite,clickhouse \
+		go test -race -count=1 ./... ; \
+		status=$$?; \
+		docker stop gohan-pg gohan-ch >/dev/null; \
+		exit $$status
 
 fuzz:
 	@for t in $(FUZZ_TARGETS); do \
