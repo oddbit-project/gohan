@@ -10,6 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Initial release: extracted from `oddbit-project/blueprint` `sqlb`.
 - `SECURITY.md`: vulnerability reporting through GitHub private vulnerability reporting.
+- CI security workflow: Trivy repository and SBOM scans (CRITICAL/HIGH fail the build, results in
+  code scanning, weekly re-scan) and a CycloneDX SBOM attached to tagged releases; `make sbom` /
+  `make scan` for local runs.
 
 ### Changed
 

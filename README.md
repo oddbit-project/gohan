@@ -285,6 +285,12 @@ struct's exported fields via `GetStructMeta`, honouring these struct tags:
 Please report vulnerabilities privately — see [SECURITY.md](SECURITY.md). Do not open public issues
 for security problems.
 
+Every push, pull request and weekly schedule runs [Trivy](https://trivy.dev) over the repository
+(vulnerabilities, secrets, misconfigurations; results in GitHub code scanning) and over a
+CycloneDX SBOM generated with `cyclonedx-gomod`; CRITICAL/HIGH findings fail the build. Tagged
+releases carry `sbom.json`. Gohan has no runtime dependencies, so its SBOM lists no components —
+test-only dependencies are still covered by the repository scan. Locally: `make sbom`, `make scan`.
+
 ## License
 
 Apache-2.0. See [LICENSE](LICENSE).
