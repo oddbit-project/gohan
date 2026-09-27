@@ -14,6 +14,7 @@ const (
 	FeatureILike                          // ILIKE operator
 	FeatureUpdate                         // UPDATE statement
 	FeatureClickHouse                     // FINAL, PREWHERE, SAMPLE, ARRAY JOIN, SETTINGS
+	FeatureLocking                        // FOR UPDATE/SHARE row locking
 )
 
 // quoteKind selects the identifier-quoting rules for a Dialect.
@@ -36,13 +37,13 @@ type Dialect struct {
 }
 
 // Postgres returns the PostgreSQL dialect: numbered ($n) placeholders,
-// double-quoted identifiers, RETURNING/upsert/ILIKE/UPDATE support, and a
-// 65535 bound-argument limit.
+// double-quoted identifiers, RETURNING/upsert/ILIKE/UPDATE/row-locking
+// support, and a 65535 bound-argument limit.
 func Postgres() Dialect {
 	return Dialect{
 		name:     "postgres",
 		quote:    quoteDouble,
-		features: FeatureReturning | FeatureUpsert | FeatureILike | FeatureUpdate,
+		features: FeatureReturning | FeatureUpsert | FeatureILike | FeatureUpdate | FeatureLocking,
 		maxArgs:  65535,
 	}
 }

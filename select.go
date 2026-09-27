@@ -38,6 +38,9 @@ type SelectBuilder struct {
 	arrayJoin      []any
 	prewhere       []Expr
 	settings       []kv
+
+	locks   []lockClause
+	lockErr bool
 }
 
 var _ Statement = (*SelectBuilder)(nil)
@@ -67,6 +70,7 @@ func (s *SelectBuilder) clone() *SelectBuilder {
 	c.arrayJoin = append([]any(nil), s.arrayJoin...)
 	c.prewhere = append([]Expr(nil), s.prewhere...)
 	c.settings = append([]kv(nil), s.settings...)
+	c.locks = append([]lockClause(nil), s.locks...)
 	return &c
 }
 
@@ -298,6 +302,7 @@ func (s *SelectBuilder) renderTail(w *writer) {
 		}
 		w.keyword(" OFFSET " + strconv.FormatUint(s.offset, 10))
 	}
+	s.renderLocks(w)
 	s.renderSettings(w)
 }
 

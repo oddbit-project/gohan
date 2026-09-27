@@ -36,8 +36,9 @@ const (
 	ErrDuplicateColumn  = Error("gohan: column set more than once")
 	ErrConflictTarget   = Error("gohan: DO UPDATE requires conflict columns")
 
-	ErrCompoundPart   = Error("gohan: a UNION member cannot have ORDER BY, LIMIT, OFFSET, WITH, SETTINGS or its own UNION")
+	ErrCompoundPart   = Error("gohan: a UNION member cannot have ORDER BY, LIMIT, OFFSET, WITH, SETTINGS, its own UNION or a row-locking clause")
 	ErrInvalidSample  = Error("gohan: SAMPLE ratio must be in (0, 1]")
 	ErrInvalidSetting = Error("gohan: invalid SETTINGS name")
 	ErrEmptyClause    = Error("gohan: clause requires at least one column")
+	ErrInvalidLock    = Error("gohan: invalid row-locking clause")
 )

@@ -85,7 +85,7 @@ func checkCompoundMember(q *SelectBuilder) error {
 		return ErrNilExpr
 	}
 	if len(q.ctes) > 0 || len(q.unions) > 0 || len(q.orderBy) > 0 ||
-		q.hasLimit || q.hasOffset || len(q.settings) > 0 {
+		q.hasLimit || q.hasOffset || len(q.settings) > 0 || len(q.locks) > 0 {
 		return ErrCompoundPart
 	}
 	return nil
