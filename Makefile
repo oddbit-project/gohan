@@ -1,12 +1,15 @@
 CYCLONEDX_GOMOD_VERSION ?= v1.12.0
 TRIVY_VERSION ?= 0.74.0
 SBOM_FILE ?= sbom.json
+FUZZTIME ?= 30s
+FUZZ_TARGETS := FuzzIdentRoundTrip FuzzValueNeverInlined FuzzRawNoOrdinal
 
-.PHONY: help test examples sbom scan sbom-clean
+.PHONY: help test examples fuzz sbom scan sbom-clean
 
 help:
 	@echo "make test       - vet, format check, race tests and examples"
 	@echo "make examples   - vet and build the examples module, run the SQLite example"
+	@echo "make fuzz       - run each fuzz target for $(FUZZTIME) (override with FUZZTIME=5m)"
 	@echo "make sbom       - generate a CycloneDX SBOM ($(SBOM_FILE))"
 	@echo "make scan       - Trivy scan of the SBOM and the repository (uses a local trivy, else Docker)"
 	@echo "make sbom-clean - remove generated SBOM/scan files"
@@ -21,6 +24,11 @@ test:
 # dependencies of gohan; the PostgreSQL and ClickHouse examples need a server.
 examples:
 	cd examples && go vet ./... && go build ./... && go run ./sqlite
+
+fuzz:
+	@for t in $(FUZZ_TARGETS); do \
+		go test -run '^$$' -fuzz "^$$t$$" -fuzztime $(FUZZTIME) . || exit 1; \
+	done
 
 sbom:
 	go run github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@$(CYCLONEDX_GOMOD_VERSION) mod -licenses -json -output $(SBOM_FILE)

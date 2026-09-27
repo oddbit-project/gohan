@@ -19,6 +19,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - README badges (pkg.go.dev, test and security workflows, release, license, Go version) and links
   to the docs and examples.
 - CI and `make test` vet and build the examples module and run the SQLite example.
+- `fuzz` workflow: runs each fuzz target (`FuzzIdentRoundTrip`, `FuzzValueNeverInlined`,
+  `FuzzRawNoOrdinal`) for 60s on pushes to main and pull requests, and for 10 minutes weekly;
+  failing inputs are uploaded as an artifact. `make fuzz` runs them locally.
 
 ### Fixed
 
