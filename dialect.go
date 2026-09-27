@@ -32,6 +32,7 @@ type Dialect struct {
 	quote    quoteKind
 	features Feature
 	maxArgs  int
+	named    bool
 }
 
 // Postgres returns the PostgreSQL dialect: numbered ($n) placeholders,
@@ -61,12 +62,49 @@ func SQLite() Dialect {
 // ClickHouse returns the ClickHouse dialect: `?` placeholders,
 // double-quoted identifiers with backslash doubling, ILIKE/ClickHouse
 // clause support, and no bound-argument limit.
+//
+// clickhouse-go formats a bound time.Time at seconds precision when
+// binding positional `?` placeholders (measured against clickhouse-go
+// v2.40.3 and v2.48.0), so a DateTime64(3/6/9) column silently loses its
+// sub-second part on insert and in comparisons. Use ClickHouseNamed to
+// keep full precision.
 func ClickHouse() Dialect {
 	return Dialect{
 		name:     "clickhouse",
 		quote:    quoteClickHouse,
 		features: FeatureILike | FeatureClickHouse,
 		maxArgs:  0,
+	}
+}
+
+// ClickHouseNamed returns the ClickHouse dialect with named placeholders: each
+// bound value is written as @p1, @p2, … and returned as a
+// sql.NamedArg{Name: "p1", Value: v}. Use it to pass time values as
+// clickhouse.DateNamed (the only way to keep DateTime64 sub-second
+// precision with clickhouse-go, which formats time.Time at seconds
+// precision through positional binding — see ClickHouse). It is not added
+// to the default registry; call Register if you want it looked up by
+// driver name.
+//
+//	q, args, _ := st.Build(gohan.ClickHouseNamed())
+//	for i, a := range args {
+//	    na := a.(sql.NamedArg)
+//	    if t, ok := na.Value.(time.Time); ok {
+//	        args[i] = clickhouse.DateNamed(na.Name, t, clickhouse.NanoSeconds)
+//	    }
+//	}
+//	rows, err := db.QueryContext(ctx, q, args...)
+//
+// For clickhouse-go's native API (clickhouse.Conn), convert every
+// sql.NamedArg to clickhouse.Named(na.Name, na.Value) instead — the native
+// API does not understand sql.NamedArg.
+func ClickHouseNamed() Dialect {
+	return Dialect{
+		name:     "clickhouse-named",
+		quote:    quoteClickHouse,
+		features: FeatureILike | FeatureClickHouse,
+		maxArgs:  0,
+		named:    true,
 	}
 }
 

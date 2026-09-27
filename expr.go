@@ -151,11 +151,23 @@ func validateRaw(d Dialect, s string) (int, error) {
 				return 0, ErrRawPlaceholder
 			}
 			i++
+		case '@':
+			if d.named && i+1 < n && isNameChar(s[i+1]) {
+				return 0, ErrRawPlaceholder
+			}
+			i++
 		default:
 			i++
 		}
 	}
 	return markers, nil
+}
+
+// isNameChar reports whether b can appear in a clickhouse-go named
+// placeholder token (@[A-Za-z0-9_]+): v2.40.3 substitutes such a token
+// even inside a string literal.
+func isNameChar(b byte) bool {
+	return b == '_' || isDigit(b) || (b >= 'A' && b <= 'Z') || (b >= 'a' && b <= 'z')
 }
 
 // Raw renders sql text verbatim, substituting each `?` marker with the

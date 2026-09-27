@@ -1,6 +1,7 @@
 package gohan
 
 import (
+	"database/sql"
 	"database/sql/driver"
 	"fmt"
 	"reflect"
@@ -201,6 +202,12 @@ func (w *writer) arg(v any) {
 			return
 		}
 		v = clickHouseNilValuer(v)
+	}
+	if w.d.named {
+		name := "p" + strconv.Itoa(len(w.args)+1)
+		w.args = append(w.args, sql.NamedArg{Name: name, Value: v})
+		w.buf.WriteString("@" + name)
+		return
 	}
 	w.args = append(w.args, v)
 	if w.d.name == "postgres" {
