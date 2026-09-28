@@ -82,13 +82,14 @@ func rawIdentifierCount(sql string) int {
 }
 
 // IsEmpty reports whether cond places no condition at all: nil, the zero
-// Value, or And() with no elements (directly or nested only in other empty
-// Ands).
+// Value, a nil *Value/*Order, or And() with no elements (directly or
+// nested only in other empty Ands).
 func IsEmpty(cond Expr) bool {
-	if cond == nil {
+	ne, valid := normExpr(cond)
+	if !valid {
 		return true
 	}
-	v, ok := cond.(Value)
+	v, ok := ne.(Value)
 	if !ok {
 		return false
 	}
@@ -111,11 +112,13 @@ func IsTrivial(cond Expr) bool {
 	if IsEmpty(cond) {
 		return true
 	}
-	if v, ok := cond.(Value); ok && v.trivial {
+	// IsEmpty(cond) was false, so cond normalizes to a valid Expr.
+	ne, _ := normExpr(cond)
+	if v, ok := ne.(Value); ok && v.trivial {
 		return true
 	}
 	w := &writer{d: Generic()}
-	cond.render(w)
+	ne.render(w)
 	if w.err != nil {
 		return false
 	}

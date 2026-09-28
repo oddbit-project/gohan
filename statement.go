@@ -60,7 +60,12 @@ func writeAlias(w *writer, alias string) {
 // anything else is bound.
 func renderAssignValue(w *writer, v any) {
 	if e, ok := v.(Expr); ok {
-		e.render(w)
+		ne, valid := normExpr(e)
+		if !valid {
+			w.fail(ErrNilExpr)
+			return
+		}
+		ne.render(w)
 		return
 	}
 	w.arg(v)

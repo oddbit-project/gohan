@@ -307,14 +307,28 @@ func (s *SelectBuilder) renderTail(w *writer) {
 }
 
 // renderOrderItem renders o: an Order is used as-is, a string or Value is
-// rendered ascending, anything else fails with ErrInvalidColumn.
+// rendered ascending, a *Order/*Value is dereferenced and rendered exactly
+// like the value it points to (nil fails with ErrNilExpr), anything else
+// fails with ErrInvalidColumn.
 func renderOrderItem(w *writer, o any) {
 	switch v := o.(type) {
 	case Order:
 		v.render(w)
+	case *Order:
+		if v == nil {
+			w.fail(ErrNilExpr)
+			return
+		}
+		v.render(w)
 	case string:
 		Col(v).Asc().render(w)
 	case Value:
+		v.Asc().render(w)
+	case *Value:
+		if v == nil {
+			w.fail(ErrNilExpr)
+			return
+		}
 		v.Asc().render(w)
 	default:
 		w.fail(ErrInvalidColumn)
