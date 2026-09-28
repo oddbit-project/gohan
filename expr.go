@@ -32,17 +32,50 @@ func (v Value) render(w *writer) {
 	v.fn(w)
 }
 
+// normExpr dereferences a *Value or *Order to the Value/Order it points
+// to, so a pointer is rendered and classified exactly like the value it
+// points to: a nil *Value or a nil *Order satisfies Expr through its
+// value-receiver render method, and calling that method directly would
+// panic, while a non-nil *Value/*Order silently lost its isRaw/trivial/
+// never/empty classification to every `e.(Value)` type assertion (which
+// never matches a pointer). ok is false for a nil Expr or a nil
+// *Value/*Order pointer; callers fail with ErrNilExpr in that case.
+func normExpr(e Expr) (Expr, bool) {
+	switch v := e.(type) {
+	case nil:
+		return nil, false
+	case *Value:
+		if v == nil {
+			return nil, false
+		}
+		return *v, true
+	case *Order:
+		if v == nil {
+			return nil, false
+		}
+		return *v, true
+	default:
+		return e, true
+	}
+}
+
 // renderExpr renders e, wrapping it in parentheses if it is a Raw Value,
 // so a Raw operand cannot change the precedence of its surrounding
-// expression.
+// expression. A nil Expr, or a nil *Value/*Order, fails with ErrNilExpr
+// instead of panicking.
 func renderExpr(w *writer, e Expr) {
-	if v, ok := e.(Value); ok && v.isRaw {
+	ne, ok := normExpr(e)
+	if !ok {
+		w.fail(ErrNilExpr)
+		return
+	}
+	if v, ok := ne.(Value); ok && v.isRaw {
 		w.keyword("(")
 		v.render(w)
 		w.keyword(")")
 		return
 	}
-	e.render(w)
+	ne.render(w)
 }
 
 // renderOperand renders x: an Expr is rendered (wrapped if Raw), anything
@@ -67,14 +100,23 @@ func Col(name string) Value {
 // has a literal to attach IsNull()/IsNotNull() to — e.g. Val(p).IsNull()
 // renders "$1 IS NULL", which PostgreSQL rejects (42P18: could not
 // determine data type of parameter). Use Val(nil) for a NULL literal.
-// Val(expr) renders expr in place.
+// Val(expr) renders expr in place: a *Value or *Order is dereferenced to
+// the value it points to (so it renders and classifies exactly like that
+// value), and Val(nv) with a nil *Value/*Order fails with ErrNilExpr at
+// render.
 func Val(v any) Value {
-	if vv, ok := v.(Value); ok {
-		return vv
-	}
 	if e, ok := v.(Expr); ok {
+		ne, valid := normExpr(e)
+		if !valid {
+			return Value{fn: func(w *writer) {
+				w.fail(ErrNilExpr)
+			}}
+		}
+		if vv, ok := ne.(Value); ok {
+			return vv
+		}
 		return Value{fn: func(w *writer) {
-			e.render(w)
+			ne.render(w)
 		}}
 	}
 	if v == nil {
@@ -297,7 +339,12 @@ func And(exprs ...Expr) Value {
 	never := false
 	empty := true
 	for _, e := range exprs {
-		v, ok := e.(Value)
+		ne, valid := normExpr(e)
+		var v Value
+		ok := false
+		if valid {
+			v, ok = ne.(Value)
+		}
 		if !ok || !v.trivial {
 			trivial = false
 		}
@@ -324,7 +371,12 @@ func Or(exprs ...Expr) Value {
 	trivial := false
 	never := true
 	for _, e := range exprs {
-		v, ok := e.(Value)
+		ne, valid := normExpr(e)
+		var v Value
+		ok := false
+		if valid {
+			v, ok = ne.(Value)
+		}
 		if ok && v.trivial {
 			trivial = true
 		}
@@ -346,19 +398,22 @@ func Or(exprs ...Expr) Value {
 // versa.
 func Not(e Expr) Value {
 	var trivial, never bool
-	if v, ok := e.(Value); ok {
-		trivial, never = v.never, v.trivial
+	ne, valid := normExpr(e)
+	if valid {
+		if v, ok := ne.(Value); ok {
+			trivial, never = v.never, v.trivial
+		}
 	}
 	return Value{
 		trivial: trivial,
 		never:   never,
 		fn: func(w *writer) {
-			if e == nil {
+			if !valid {
 				w.fail(ErrNilExpr)
 				return
 			}
 			w.keyword("NOT (")
-			e.render(w)
+			ne.render(w)
 			w.keyword(")")
 		},
 	}

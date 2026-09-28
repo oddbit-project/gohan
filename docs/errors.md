@@ -66,7 +66,7 @@ fmt.Println(err)
 
 | Error | Returned when |
 |---|---|
-| `ErrNilExpr` | a nil or zero-value expression, a nil subquery, a join without an `ON` condition |
+| `ErrNilExpr` | a nil or zero-value expression, including a nil `*Value`/`*Order`, a nil subquery, a join without an `ON` condition |
 | `ErrRawArgs` | the number of `?` markers in `Raw` differs from the number of arguments |
 | `ErrRawPlaceholder` | `Raw` text contains a sequence a driver could read as a placeholder; see [Raw](raw-and-escape-hatches.md#rejected-placeholder-sequences) |
 | `ErrInvalidFunction` | an `Fn` name not matching `^[A-Za-z_][A-Za-z0-9_]*$` |

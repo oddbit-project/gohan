@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- A nil `*Value`/`*Order` (e.g. an optional condition held in a `var cond *gohan.Value` that was
+  never set) used anywhere an `Expr` or operand is accepted — `Where`, `And`/`Or`/`Not`,
+  comparisons, `Val`, `Select`/`GroupBy`/`Having`/`OrderBy`, a join's `ON`, `Set`/`SetMap`,
+  `Values`, `IsEmpty`/`IsTrivial`, and more — now fails with `ErrNilExpr` instead of panicking.
+  `*Value` and `*Order` satisfy `Expr` through a value-receiver `render` method, so a nil pointer
+  reached `render` without ever comparing equal to a nil `Expr` interface.
+- A **non-nil** `*Value`/`*Order` used the same way previously rendered, but silently lost its
+  classification: every internal flag read type-asserts `e.(Value)`, which never matches a
+  pointer. Concretely, `Delete("t").Where(&Or(a1, And()))` built
+  `DELETE FROM "t" WHERE ("a" = $1 OR (1=1))` with no error, instead of being refused by the
+  trivially-true `WHERE` guard like the non-pointer form; and `Where(&raw, a1)` rendered a `Raw`
+  operand unparenthesized (`WHERE a = 1 OR b = 2 AND "a" = $1` instead of
+  `WHERE (a = 1 OR b = 2) AND "a" = $1`), letting an ANDed filter be bypassed by an OR inside the
+  Raw text. A `*Value`/`*Order` is now dereferenced before rendering or classification, so it
+  behaves exactly like the value it points to.
+
 ## [v0.4.0] - 2026-09-28
 
 ### Changed

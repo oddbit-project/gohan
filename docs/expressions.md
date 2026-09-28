@@ -38,11 +38,14 @@ sql, args, err := gohan.From("users").
 `Val(nil)` renders the `NULL` keyword; a nil pointer is bound as a parameter (the driver sends
 NULL), so it no longer has a literal for `IsNull()`/`IsNotNull()` to attach to —
 `Val(p).IsNull()` renders `$1 IS NULL`, which PostgreSQL rejects (`42P18`: could not determine data
-type of parameter). Use `Val(nil)` for a NULL literal. `Val(expr)` returns `expr` unchanged. A
+type of parameter). Use `Val(nil)` for a NULL literal. `Val(expr)` returns `expr` unchanged,
+dereferencing a `*Value`/`*Order` first, so `Val(&v)` returns the same `Value` as `Val(v)`. A
 plain `nil` passed elsewhere in value position (an `Fn` argument, a `Set` value, a `CASE` result)
 is bound as a nil argument instead, except in `Eq`/`Neq`, which render `IS NULL`/`IS NOT NULL` for
 untyped `nil` only — a nil pointer there is bound as a parameter too, so `x = NULL` matches no
-row. `Star()` renders an unquoted `*`.
+row. The one exception is a nil `*Value`/`*Order` itself (e.g. an optional condition held in a
+`var cond *gohan.Value` that was never set): wherever an `Expr` is accepted, it fails with
+`ErrNilExpr` instead of being bound or dereferenced. `Star()` renders an unquoted `*`.
 
 ## Comparisons
 
@@ -195,8 +198,10 @@ sql, args, err := gohan.From("users").
 
 ## Checking a condition
 
-`IsEmpty(cond)` reports whether `cond` places no condition at all: `nil`, the zero `Value`, or
-`And()` with no elements (directly, or nested only in other empty `And`s).
+`IsEmpty(cond)` reports whether `cond` places no condition at all: `nil`, the zero `Value`, a nil
+`*Value`/`*Order`, or `And()` with no elements (directly, or nested only in other empty `And`s). A
+non-nil `*Value`/`*Order` is dereferenced first, so `IsEmpty(&v)`/`IsTrivial(&v)` match
+`IsEmpty(v)`/`IsTrivial(v)`.
 
 `IsTrivial(cond)` reports whether `cond` does not restrict rows: it is empty, syntactically
 always true (as `And()`, `Or(x, And())`, `Not(Or())` and similar already are), or it references

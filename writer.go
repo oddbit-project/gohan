@@ -208,7 +208,12 @@ func (w *writer) arg(v any) {
 		return
 	}
 	if e, ok := v.(Expr); ok {
-		e.render(w)
+		ne, valid := normExpr(e)
+		if !valid {
+			w.fail(ErrNilExpr)
+			return
+		}
+		ne.render(w)
 		return
 	}
 	if w.d.quote == quoteClickHouse {
@@ -256,12 +261,13 @@ func (w *writer) finish() (string, []any, error) {
 // writer.
 func render(d Dialect, e Expr) (string, []any, error) {
 	w := &writer{d: d}
+	ne, valid := normExpr(e)
 	if d.Name() == "" {
 		w.fail(ErrUnknownDialect)
-	} else if e == nil {
+	} else if !valid {
 		w.fail(ErrNilExpr)
 	} else {
-		e.render(w)
+		ne.render(w)
 	}
 	return w.finish()
 }
