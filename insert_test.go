@@ -228,12 +228,12 @@ func TestDefaultValuesErrors(t *testing.T) {
 		{"clickhouse unsupported", ClickHouse(), Insert("d").DefaultValues(), ErrUnsupported},
 		{"clickhouse named unsupported", ClickHouseNamed(), Insert("d").DefaultValues(), ErrUnsupported},
 		{"sqlite on conflict unsupported", SQLite(), Insert("d").DefaultValues().OnConflict("id").DoNothing(), ErrUnsupported},
-		{"mixed with values", Postgres(), Insert("d").DefaultValues().Columns("a").Values(1), ErrInsertMixed},
+		{"mixed with values", Postgres(), Insert("d").DefaultValues().Values(1), ErrInsertMixed},
 		{"mixed with rows", Postgres(), Insert("d").DefaultValues().Rows(struct {
 			Name string `db:"name"`
 		}{"x"}), ErrInsertMixed},
 		{"mixed with setmap", Postgres(), Insert("d").DefaultValues().SetMap(map[string]any{"a": 1}), ErrInsertMixed},
-		{"mixed with from select", Postgres(), Insert("d").DefaultValues().Columns("a").FromSelect(Select("x").From("s")), ErrInsertMixed},
+		{"mixed with from select", Postgres(), Insert("d").DefaultValues().FromSelect(Select("x").From("s")), ErrInsertMixed},
 		{"mixed with columns", Postgres(), Insert("d").DefaultValues().Columns("a"), ErrInsertMixed},
 		{"do update excluded unknown field", Postgres(), Insert("d").DefaultValues().OnConflict("id").DoUpdateExcluded("name"), ErrUnknownField},
 	}
