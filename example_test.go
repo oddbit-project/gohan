@@ -906,6 +906,23 @@ func ExampleInsertBuilder_Returning() {
 	// INSERT INTO "users" ("name") VALUES ($1) RETURNING "id", "created_at" [alice] <nil>
 }
 
+// ExampleInsertBuilder_DefaultValues inserts a single row that takes every
+// column's default. Not all dialects support it: ClickHouse fails at
+// Build with ErrUnsupported.
+func ExampleInsertBuilder_DefaultValues() {
+	sql, args, err := gohan.Insert("d").
+		DefaultValues().
+		Returning("id", "code", "name").
+		Build(gohan.Postgres())
+	fmt.Println(sql, args, err)
+
+	_, _, err = gohan.Insert("d").DefaultValues().Build(gohan.ClickHouse())
+	fmt.Println(errors.Is(err, gohan.ErrUnsupported))
+	// Output:
+	// INSERT INTO "d" DEFAULT VALUES RETURNING "id", "code", "name" [] <nil>
+	// true
+}
+
 // ExampleConflictBuilder_DoNothing ignores rows that violate a unique
 // constraint.
 func ExampleConflictBuilder_DoNothing() {
