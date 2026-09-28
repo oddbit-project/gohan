@@ -24,8 +24,9 @@ func TestComparisons(t *testing.T) {
 	}{
 		{"eq", Postgres(), Col("a").Eq(5), `"a" = $1`, []any{5}, nil},
 		{"eq nil", Postgres(), Col("a").Eq(nil), `"a" IS NULL`, []any{}, nil},
-		{"eq nil ptr", Postgres(), Col("a").Eq((*int)(nil)), `"a" IS NULL`, []any{}, nil},
+		{"eq nil ptr", Postgres(), Col("a").Eq((*int)(nil)), `"a" = $1`, []any{(*int)(nil)}, nil},
 		{"neq nil", Postgres(), Col("a").Neq(nil), `"a" IS NOT NULL`, []any{}, nil},
+		{"neq nil ptr", Postgres(), Col("a").Neq((*int)(nil)), `"a" <> $1`, []any{(*int)(nil)}, nil},
 		{"eq col", Postgres(), Col("a").Eq(Col("b")), `"a" = "b"`, []any{}, nil},
 		{"in ints", Postgres(), Col("a").In(1, 2), `"a" IN ($1, $2)`, []any{1, 2}, nil},
 		{"in slice", Postgres(), Col("a").In([]int{1, 2}), `"a" IN ($1, $2)`, []any{1, 2}, nil},
@@ -41,6 +42,7 @@ func TestComparisons(t *testing.T) {
 		{"match", Postgres(), Match(map[string]any{"b": 2, "a": 1}), `("a" = $1 AND "b" = $2)`, []any{1, 2}, nil},
 		{"match empty", Postgres(), Match(map[string]any{}), "", nil, ErrEmptyMatch},
 		{"val nil", Postgres(), Val(nil), "NULL", []any{}, nil},
+		{"val nil ptr", Postgres(), Val((*int)(nil)), "$1", []any{(*int)(nil)}, nil},
 		{"int pos", Postgres(), Int(7), "7", []any{}, nil},
 		{"int neg", Postgres(), Int(-3), "(-3)", []any{}, nil},
 		{"as", Postgres(), Col("a").As("x"), `"a" AS "x"`, []any{}, nil},
@@ -74,6 +76,9 @@ func TestComparisons(t *testing.T) {
 	}
 }
 
+// TestNilHandling checks that only an untyped nil (including a nil
+// interface holding nothing) renders IS NULL; a nil pointer is bound as a
+// parameter, whatever its pointee type.
 func TestNilHandling(t *testing.T) {
 	var nilIface any
 	tests := []struct {
@@ -81,7 +86,6 @@ func TestNilHandling(t *testing.T) {
 		x    any
 	}{
 		{"untyped nil", nil},
-		{"nil ptr", (*int)(nil)},
 		{"nil interface", nilIface},
 	}
 	for _, tt := range tests {
@@ -97,6 +101,117 @@ func TestNilHandling(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, `"a" = $1`, sql)
 	assert.Equal(t, []any{&n}, args)
+}
+
+// ptrRecvValuer implements driver.Valuer with a pointer receiver: calling
+// Value() on a nil *ptrRecvValuer panics, unlike a value-receiver Valuer
+// such as sql.NullString (database/sql's callValuerValue already skips a
+// nil pointer whose Value method has a value receiver, and binds NULL
+// directly). clickhouse-go calls Value() on a nil pointer of either
+// receiver kind, so it would panic for both.
+type ptrRecvValuer struct{ n int }
+
+func (v *ptrRecvValuer) Value() (driver.Value, error) { return int64(v.n), nil }
+
+// TestNilPointerBinding checks that a nil pointer is an ordinary value —
+// bound as a parameter, not treated as SQL NULL — across Eq, Neq, Val,
+// Match, and every dialect, where a nil pointer to a driver.Valuer type
+// must go through the writer's nilValuer normalization instead of gohan's
+// own NULL rendering. nilValuer normalizes a nil pointer implementing
+// driver.Valuer regardless of receiver kind: database/sql itself only
+// panics on the pointer-receiver kind, but clickhouse-go panics on either,
+// so gohan treats both the same on every dialect for consistency.
+func TestNilPointerBinding(t *testing.T) {
+	t.Run("eq nil pointer binds, does not render IS NULL", func(t *testing.T) {
+		sql, args, err := render(Postgres(), Col("x").Eq((*int)(nil)))
+		require.NoError(t, err)
+		assert.Equal(t, `"x" = $1`, sql)
+		assert.Equal(t, []any{(*int)(nil)}, args)
+	})
+
+	t.Run("neq nil pointer binds, does not render IS NOT NULL", func(t *testing.T) {
+		sql, args, err := render(Postgres(), Col("x").Neq((*int)(nil)))
+		require.NoError(t, err)
+		assert.Equal(t, `"x" <> $1`, sql)
+		assert.Equal(t, []any{(*int)(nil)}, args)
+	})
+
+	t.Run("val nil pointer binds, does not render NULL", func(t *testing.T) {
+		sql, args, err := render(Postgres(), Val((*int)(nil)))
+		require.NoError(t, err)
+		assert.Equal(t, "$1", sql)
+		assert.Equal(t, []any{(*int)(nil)}, args)
+	})
+
+	t.Run("match with nil pointer field binds", func(t *testing.T) {
+		sql, args, err := render(Postgres(), Match(map[string]any{"x": (*int)(nil)}))
+		require.NoError(t, err)
+		assert.Equal(t, `"x" = $1`, sql)
+		assert.Equal(t, []any{(*int)(nil)}, args)
+	})
+
+	// sql.NullString.Value has a value receiver: database/sql itself would
+	// already bind this nil pointer as NULL without help, but clickhouse-go
+	// would call Value() on it and panic. Eq no longer treats this nil
+	// pointer as SQL NULL, so it must reach the writer's nilValuer
+	// normalization instead of the driver.
+	t.Run("eq nil Valuer pointer normalizes to untyped nil on postgres", func(t *testing.T) {
+		var p *sql.NullString
+		stmt, args, err := render(Postgres(), Col("x").Eq(p))
+		require.NoError(t, err)
+		assert.Equal(t, `"x" = $1`, stmt)
+		assert.Equal(t, []any{nil}, args)
+	})
+
+	// ptrRecvValuer has a pointer-receiver Value(): database/sql would call
+	// it on the nil pointer and panic without nilValuer's normalization.
+	t.Run("eq nil pointer-receiver Valuer normalizes to untyped nil on postgres", func(t *testing.T) {
+		var p *ptrRecvValuer
+		stmt, args, err := render(Postgres(), Col("x").Eq(p))
+		require.NoError(t, err)
+		assert.Equal(t, `"x" = $1`, stmt)
+		assert.Equal(t, []any{nil}, args)
+	})
+
+	t.Run("eq nil Valuer pointer normalizes to untyped nil on sqlite", func(t *testing.T) {
+		var p *sql.NullString
+		stmt, args, err := render(SQLite(), Col("x").Eq(p))
+		require.NoError(t, err)
+		assert.Equal(t, "`x` = ?", stmt)
+		assert.Equal(t, []any{nil}, args)
+	})
+
+	t.Run("eq nil Valuer pointer normalizes to untyped nil on clickhouse", func(t *testing.T) {
+		var p *sql.NullString
+		stmt, args, err := render(ClickHouse(), Col("x").Eq(p))
+		require.NoError(t, err)
+		assert.Equal(t, `"x" = ?`, stmt)
+		assert.Equal(t, []any{nil}, args)
+	})
+
+	t.Run("clickhouse named: nil pointer to Valuer normalizes to untyped nil, not IS NULL", func(t *testing.T) {
+		var p *sql.NullString
+		stmt, args, err := render(ClickHouseNamed(), Col("x").Eq(p))
+		require.NoError(t, err)
+		assert.Equal(t, `"x" = @p1`, stmt)
+		require.Len(t, args, 1)
+		na, ok := args[0].(sql.NamedArg)
+		require.True(t, ok)
+		assert.Equal(t, "p1", na.Name)
+		assert.Nil(t, na.Value)
+	})
+
+	// UPDATE is not supported on ClickHouse (FeatureUpdate), so Set is
+	// only exercised on Postgres and SQLite; ClickHouse's own binding
+	// path is covered by the Eq/Val cases above.
+	t.Run("set nil Valuer pointer normalizes to untyped nil", func(t *testing.T) {
+		var p *sql.NullString
+		for _, d := range []Dialect{Postgres(), SQLite()} {
+			_, args, err := Update("t").Set("c", p).Where(Col("id").Eq(1)).Build(d)
+			require.NoError(t, err)
+			assert.Equal(t, nil, args[0])
+		}
+	})
 }
 
 type valuerSlice []int

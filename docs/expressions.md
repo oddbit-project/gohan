@@ -35,10 +35,14 @@ sql, args, err := gohan.From("users").
 // args: [admin]
 ```
 
-`Val(nil)` renders the `NULL` keyword and `Val(expr)` returns `expr` unchanged. A plain `nil`
-passed elsewhere in value position (an `Fn` argument, a `Set` value, a `CASE` result) is bound as
-a nil argument instead, except in `Eq`/`Neq`, which render `IS NULL`/`IS NOT NULL`. `Star()` renders an
-unquoted `*`.
+`Val(nil)` renders the `NULL` keyword; a nil pointer is bound as a parameter (the driver sends
+NULL), so it no longer has a literal for `IsNull()`/`IsNotNull()` to attach to —
+`Val(p).IsNull()` renders `$1 IS NULL`, which PostgreSQL rejects (`42P18`: could not determine data
+type of parameter). Use `Val(nil)` for a NULL literal. `Val(expr)` returns `expr` unchanged. A
+plain `nil` passed elsewhere in value position (an `Fn` argument, a `Set` value, a `CASE` result)
+is bound as a nil argument instead, except in `Eq`/`Neq`, which render `IS NULL`/`IS NOT NULL` for
+untyped `nil` only — a nil pointer there is bound as a parameter too, so `x = NULL` matches no
+row. `Star()` renders an unquoted `*`.
 
 ## Comparisons
 
@@ -59,17 +63,29 @@ sql, args, err := gohan.From("orders").
 
 ## NULL
 
-`Eq(nil)` and `Neq(nil)` render `IS NULL` and `IS NOT NULL`, because `= NULL` never matches. A nil
-pointer counts as nil. `IsNull()` and `IsNotNull()` say the same thing explicitly:
+`Eq(nil)` and `Neq(nil)` render `IS NULL` and `IS NOT NULL`, because `= NULL` never matches. Only
+an untyped `nil` triggers this: a nil pointer is an ordinary value, bound as a parameter, so
+`Eq`/`Neq` render `= $1`/`<> $1` and the statement matches no row — this changed `Neq` on a nil
+pointer from matching every non-NULL row to matching no row. `IsNull()` and `IsNotNull()` test for
+NULL explicitly and work the same whether the column is actually NULL. Use `Eq(nil)`/`IsNull()` or
+`Neq(nil)`/`IsNotNull()` to test for NULL:
 
 ```go
-var deletedAt *time.Time
-
 sql, args, err := gohan.From("users").
-	Where(gohan.Col("deleted_at").Eq(deletedAt), gohan.Col("email").IsNotNull()).
+	Where(gohan.Col("deleted_at").Eq(nil), gohan.Col("email").IsNotNull()).
 	Build(gohan.Postgres())
 // sql: SELECT * FROM "users" WHERE ("deleted_at" IS NULL AND "email" IS NOT NULL)
 // args: []
+```
+
+```go
+var deletedAt *time.Time // nil — e.g. an optional filter the caller didn't set
+
+sql, args, err := gohan.From("users").
+	Where(gohan.Col("deleted_at").Eq(deletedAt)).
+	Build(gohan.Postgres())
+// sql: SELECT * FROM "users" WHERE "deleted_at" = $1
+// args: [<nil *time.Time>] -- binds NULL, matches no row (not IS NULL)
 ```
 
 ## IN and NOT IN

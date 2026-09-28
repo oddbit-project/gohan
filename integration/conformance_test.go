@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"database/sql"
 	"fmt"
 	"sync/atomic"
 	"testing"
@@ -198,6 +199,73 @@ func TestQuotedIdentifiers(t *testing.T) {
 			rows := query(t, e, gohan.Select("select", "a b").From(tbl).Where(gohan.Col("id").Eq(1)))
 			require.Len(t, rows, 1)
 			assert.Equal(t, []string{"x", "y"}, rows[0])
+		})
+	}
+}
+
+// TestNilPointerDoesNotMatchNull proves, against real PostgreSQL,
+// ClickHouse and SQLite, that Eq/Neq with a typed nil pointer bind it as
+// an ordinary parameter instead of rendering IS NULL/IS NOT NULL: a row
+// whose val column is actually NULL is matched by Eq(nil) but not by
+// Eq((*int)(nil)), and is matched by Neq((*int)(nil)) but not by
+// Neq(nil).
+func TestNilPointerDoesNotMatchNull(t *testing.T) {
+	for _, e := range engines(t) {
+		e := e
+		t.Run(e.name, func(t *testing.T) {
+			tbl := newTable(t, e)
+			ddl(t, e,
+				"CREATE TABLE "+tbl+" (id integer, val integer)",
+				"CREATE TABLE "+tbl+" (id integer, val integer)",
+				"CREATE TABLE "+tbl+" (id Int64, val Nullable(Int32)) ENGINE = MergeTree ORDER BY id")
+
+			exec(t, e, gohan.Insert(tbl).Columns("id", "val").Values(1, nil))
+			exec(t, e, gohan.Insert(tbl).Columns("id", "val").Values(2, 5))
+
+			var nilPtr *int
+
+			// Eq(nil): untyped nil, renders IS NULL, matches the NULL row.
+			rows := query(t, e, gohan.Select("id").From(tbl).Where(gohan.Col("val").Eq(nil)))
+			require.Len(t, rows, 1)
+			assert.Equal(t, "1", rows[0][0])
+
+			// Eq(nilPtr): a nil pointer is bound as a parameter, so
+			// "val = NULL" matches no row, including the one with a NULL
+			// val.
+			rows = query(t, e, gohan.Select("id").From(tbl).Where(gohan.Col("val").Eq(nilPtr)))
+			assert.Empty(t, rows)
+
+			// Neq(nil): untyped nil, renders IS NOT NULL, matches the
+			// non-NULL row.
+			rows = query(t, e, gohan.Select("id").From(tbl).Where(gohan.Col("val").Neq(nil)))
+			require.Len(t, rows, 1)
+			assert.Equal(t, "2", rows[0][0])
+
+			// Neq(nilPtr): "val <> NULL" matches no row either.
+			rows = query(t, e, gohan.Select("id").From(tbl).Where(gohan.Col("val").Neq(nilPtr)))
+			assert.Empty(t, rows)
+		})
+	}
+}
+
+// TestNilValuerPointerDoesNotPanic proves that binding a nil pointer whose
+// type implements driver.Valuer with a value-receiver Value() method (here
+// *sql.NullString) does not panic on any engine and matches no row, now
+// that Eq binds a nil pointer as an ordinary parameter instead of
+// rendering IS NULL. Without the writer's nilValuer normalization,
+// database/sql itself would call Value() on the nil pointer and panic.
+func TestNilValuerPointerDoesNotPanic(t *testing.T) {
+	for _, e := range engines(t) {
+		e := e
+		t.Run(e.name, func(t *testing.T) {
+			tbl := idNameTable(t, e)
+			exec(t, e, gohan.Insert(tbl).Columns("id", "name").Values(1, "a"))
+
+			var p *sql.NullString
+			require.NotPanics(t, func() {
+				rows := query(t, e, gohan.Select("id").From(tbl).Where(gohan.Col("name").Eq(p)))
+				assert.Empty(t, rows)
+			})
 		})
 	}
 }

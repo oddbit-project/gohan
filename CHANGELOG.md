@@ -6,6 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** `Eq`, `Neq` and `Val` now render `IS NULL`/`IS NOT NULL`/`NULL` only for an
+  untyped `nil`. A nil pointer (e.g. `var p *int; Col("x").Eq(p)`) is no longer treated as nil: it
+  is bound as an ordinary parameter, so the driver sends `NULL` and the comparison matches no row.
+
+  ```go
+  var p *int // nil
+
+  gohan.Col("x").Eq(p)
+  // before: "x" IS NULL        -> matches every NULL row
+  // after:  "x" = $1 (NULL)    -> matches no row
+
+  gohan.Col("x").Neq(p)
+  // before: "x" IS NOT NULL    -> matches every non-NULL row
+  // after:  "x" <> $1 (NULL)   -> matches no row
+  ```
+
+  To test for NULL explicitly, use `Eq(nil)`/`IsNull()` or `Neq(nil)`/`IsNotNull()` with an
+  untyped `nil`. `Match` inherits this through `Eq`.
+
+  `Val(p)` with a nil pointer is likewise bound as a parameter rather than rendering the `NULL`
+  keyword, so it no longer has a literal for `IsNull()`/`IsNotNull()` to attach to —
+  `Val(p).IsNull()` renders `$1 IS NULL`, which PostgreSQL rejects (`42P18`). Use `Val(nil)` for a
+  NULL literal.
+
+### Fixed
+
+- A nil pointer whose type implements `driver.Valuer` is bound as untyped `nil` on every dialect,
+  not just ClickHouse. Without this, binding such a value as an ordinary parameter — which
+  `Eq`/`Neq`/`Val`/`Set` now do for any nil pointer — would let database/sql call a
+  pointer-receiver `Value()` method on the nil pointer and panic (clickhouse-go calls `Value()` for
+  either receiver kind). Note: a pointer-receiver `Valuer` that deliberately returns a non-NULL
+  value for a nil receiver is now bound as NULL.
+
 ## [v0.3.0] - 2026-09-28
 
 ### Added

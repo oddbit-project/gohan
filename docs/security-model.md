@@ -23,7 +23,8 @@ sql, args, err := gohan.From("users").
 
 The only values written inline are numbers formatted by `strconv` (`LIMIT`/`OFFSET` and
 `SampleRows` as `uint64`, `Int(n)` as `int64`, the validated `Sample` ratio as `float64`) and the
-`NULL` keyword from `Val(nil)`, `Eq(nil)` and `Neq(nil)`.
+`NULL` keyword from `Val(nil)`, `Eq(nil)` and `Neq(nil)` with an untyped `nil` (a nil pointer is
+bound as a parameter, not written as `NULL`).
 
 **Identifiers are always quoted and escaped** per dialect, whatever characters they contain:
 

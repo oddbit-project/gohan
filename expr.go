@@ -9,21 +9,6 @@ import (
 	"strings"
 )
 
-// isNilValue reports whether v is untyped nil, a nil pointer, or a nil
-// interface.
-func isNilValue(v any) bool {
-	if v == nil {
-		return true
-	}
-	rv := reflect.ValueOf(v)
-	switch rv.Kind() {
-	case reflect.Ptr, reflect.Interface:
-		return rv.IsNil()
-	default:
-		return false
-	}
-}
-
 // Expr is any renderable SQL fragment. It is sealed: only this package can
 // implement it.
 type Expr interface{ render(w *writer) }
@@ -77,7 +62,11 @@ func Col(name string) Value {
 	}}
 }
 
-// Val binds v as an argument. Val(nil) renders the keyword NULL.
+// Val binds v as an argument. Val(nil) renders the keyword NULL; a nil
+// pointer is bound as a parameter (the driver sends NULL), so it no longer
+// has a literal to attach IsNull()/IsNotNull() to — e.g. Val(p).IsNull()
+// renders "$1 IS NULL", which PostgreSQL rejects (42P18: could not
+// determine data type of parameter). Use Val(nil) for a NULL literal.
 // Val(expr) renders expr in place.
 func Val(v any) Value {
 	if vv, ok := v.(Value); ok {
@@ -88,7 +77,7 @@ func Val(v any) Value {
 			e.render(w)
 		}}
 	}
-	if isNilValue(v) {
+	if v == nil {
 		return Value{fn: func(w *writer) {
 			w.keyword("NULL")
 		}}
@@ -377,7 +366,9 @@ func Not(e Expr) Value {
 
 // Match renders an AND of equality comparisons, one per field, with keys
 // sorted for deterministic output. Match(nil) or an empty map fails with
-// ErrEmptyMatch.
+// ErrEmptyMatch. It builds each comparison with Eq, so a field value that
+// is untyped nil renders IS NULL; a nil pointer field value is bound as a
+// parameter and matches no row.
 func Match(fields map[string]any) Value {
 	if len(fields) == 0 {
 		return Value{fn: func(w *writer) {
@@ -404,9 +395,11 @@ func compare(v Value, op string, x any) Value {
 	}}
 }
 
-// Eq renders "v = x", or "v IS NULL" when x is nil.
+// Eq renders "v = x", or "v IS NULL" when x is untyped nil. A nil pointer
+// is not untyped nil: it is bound as a parameter, so "v = NULL" matches no
+// row. Use Eq(nil) or IsNull() to test for NULL.
 func (v Value) Eq(x any) Value {
-	if isNilValue(x) {
+	if x == nil {
 		return Value{fn: func(w *writer) {
 			renderExpr(w, v)
 			w.keyword(" IS NULL")
@@ -415,9 +408,11 @@ func (v Value) Eq(x any) Value {
 	return compare(v, "=", x)
 }
 
-// Neq renders "v <> x", or "v IS NOT NULL" when x is nil.
+// Neq renders "v <> x", or "v IS NOT NULL" when x is untyped nil. A nil
+// pointer is not untyped nil: it is bound as a parameter, so "v <> NULL"
+// matches no row. Use Neq(nil) or IsNotNull() to test for NOT NULL.
 func (v Value) Neq(x any) Value {
-	if isNilValue(x) {
+	if x == nil {
 		return Value{fn: func(w *writer) {
 			renderExpr(w, v)
 			w.keyword(" IS NOT NULL")

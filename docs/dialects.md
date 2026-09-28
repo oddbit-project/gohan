@@ -273,8 +273,11 @@ arrays:
   `Value()` only on those). Nested inside a slice it is checked like any other value, so a
   struct-based `Valuer` such as `sql.NullString` fails. Pass it on its own, or through `In(...)`,
   which binds each element as a top-level value;
-- a top-level nil pointer to a `driver.Valuer` type is bound as `NULL` (clickhouse-go would
-  otherwise call `Value()` on it and panic);
+- a nil pointer to a `driver.Valuer` type is bound as untyped `nil` on every dialect, not just
+  ClickHouse: database/sql would otherwise call a pointer-receiver `Value()` method on the nil
+  pointer and panic (clickhouse-go calls `Value()` for either receiver kind). Note: a
+  pointer-receiver `Valuer` that deliberately returns a non-NULL value for a nil receiver is now
+  bound as NULL;
 - a statement builder passed as a value fails with `ErrInvalidColumn`.
 
 ```go
