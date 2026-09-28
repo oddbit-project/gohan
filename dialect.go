@@ -9,12 +9,13 @@ import (
 type Feature uint
 
 const (
-	FeatureReturning  Feature = 1 << iota // RETURNING on INSERT/UPDATE/DELETE
-	FeatureUpsert                         // INSERT ... ON CONFLICT
-	FeatureILike                          // ILIKE operator
-	FeatureUpdate                         // UPDATE statement
-	FeatureClickHouse                     // FINAL, PREWHERE, SAMPLE, ARRAY JOIN, SETTINGS
-	FeatureLocking                        // FOR UPDATE/SHARE row locking
+	FeatureReturning     Feature = 1 << iota // RETURNING on INSERT/UPDATE/DELETE
+	FeatureUpsert                            // INSERT ... ON CONFLICT
+	FeatureILike                             // ILIKE operator
+	FeatureUpdate                            // UPDATE statement
+	FeatureClickHouse                        // FINAL, PREWHERE, SAMPLE, ARRAY JOIN, SETTINGS
+	FeatureLocking                           // FOR UPDATE/SHARE row locking
+	FeatureDefaultValues                     // INSERT ... DEFAULT VALUES
 )
 
 // quoteKind selects the identifier-quoting rules for a Dialect.
@@ -37,25 +38,25 @@ type Dialect struct {
 }
 
 // Postgres returns the PostgreSQL dialect: numbered ($n) placeholders,
-// double-quoted identifiers, RETURNING/upsert/ILIKE/UPDATE/row-locking
-// support, and a 65535 bound-argument limit.
+// double-quoted identifiers, RETURNING/upsert/ILIKE/UPDATE/row-locking/
+// DEFAULT VALUES support, and a 65535 bound-argument limit.
 func Postgres() Dialect {
 	return Dialect{
 		name:     "postgres",
 		quote:    quoteDouble,
-		features: FeatureReturning | FeatureUpsert | FeatureILike | FeatureUpdate | FeatureLocking,
+		features: FeatureReturning | FeatureUpsert | FeatureILike | FeatureUpdate | FeatureLocking | FeatureDefaultValues,
 		maxArgs:  65535,
 	}
 }
 
 // SQLite returns the SQLite dialect: `?` placeholders, backtick-quoted
-// identifiers, RETURNING/upsert/UPDATE support, and a 32766 bound-argument
-// limit.
+// identifiers, RETURNING/upsert/UPDATE/DEFAULT VALUES support, and a 32766
+// bound-argument limit.
 func SQLite() Dialect {
 	return Dialect{
 		name:     "sqlite",
 		quote:    quoteBacktick,
-		features: FeatureReturning | FeatureUpsert | FeatureUpdate,
+		features: FeatureReturning | FeatureUpsert | FeatureUpdate | FeatureDefaultValues,
 		maxArgs:  32766,
 	}
 }
@@ -110,14 +111,14 @@ func ClickHouseNamed() Dialect {
 }
 
 // Generic returns the ANSI SQL dialect: `?` placeholders, ANSI
-// double-quoted identifiers, UPDATE support, and a 999 bound-argument
-// limit. It must not be registered for MySQL, where double-quoted text is
-// a string literal, not an identifier.
+// double-quoted identifiers, UPDATE/DEFAULT VALUES support, and a 999
+// bound-argument limit. It must not be registered for MySQL, where
+// double-quoted text is a string literal, not an identifier.
 func Generic() Dialect {
 	return Dialect{
 		name:     "generic",
 		quote:    quoteDouble,
-		features: FeatureUpdate,
+		features: FeatureUpdate | FeatureDefaultValues,
 		maxArgs:  999,
 	}
 }

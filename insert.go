@@ -47,6 +47,8 @@ type InsertBuilder struct {
 	hasFromSelect bool
 	fromSelect    *SelectBuilder
 
+	defaultValues bool
+
 	conflict *conflictState
 
 	returning []any
@@ -113,6 +115,16 @@ func (b *InsertBuilder) FromSelect(q *SelectBuilder) *InsertBuilder {
 	c := b.clone()
 	c.hasFromSelect = true
 	c.fromSelect = q
+	return c
+}
+
+// DefaultValues makes the INSERT "INSERT INTO t DEFAULT VALUES": one row,
+// every column taking its default. It cannot be combined with Columns,
+// Values, Rows, SetMap or FromSelect. ErrUnsupported on dialects without
+// FeatureDefaultValues (e.g. ClickHouse).
+func (b *InsertBuilder) DefaultValues() *InsertBuilder {
+	c := b.clone()
+	c.defaultValues = true
 	return c
 }
 
@@ -306,108 +318,126 @@ func (b *InsertBuilder) renderInsert(w *writer) {
 	if b.hasFromSelect {
 		sourceCount++
 	}
-	if sourceCount > 1 {
+	if b.defaultValues {
+		sourceCount++
+	}
+	if sourceCount > 1 || (b.defaultValues && len(b.cols) > 0) {
 		w.fail(ErrInsertMixed)
 		return
 	}
 
 	var cols []string
 	var rows [][]any
-	switch {
-	case b.hasRows:
-		if b.rowsErr != nil {
-			w.fail(b.rowsErr)
-			return
-		}
-		cols, rows = b.rowsCols, b.rowsData
-	case b.hasSetMap:
-		if b.setMapErr != nil {
-			w.fail(b.setMapErr)
-			return
-		}
-		cols, rows = b.setMapCols, [][]any{b.setMapVals}
-	case b.hasValues:
-		if len(b.cols) == 0 {
-			w.fail(ErrValueCount)
-			return
-		}
-		for _, row := range b.valueRows {
-			if len(row) != len(b.cols) {
+	if !b.defaultValues {
+		switch {
+		case b.hasRows:
+			if b.rowsErr != nil {
+				w.fail(b.rowsErr)
+				return
+			}
+			cols, rows = b.rowsCols, b.rowsData
+		case b.hasSetMap:
+			if b.setMapErr != nil {
+				w.fail(b.setMapErr)
+				return
+			}
+			cols, rows = b.setMapCols, [][]any{b.setMapVals}
+		case b.hasValues:
+			if len(b.cols) == 0 {
 				w.fail(ErrValueCount)
 				return
 			}
-		}
-		cols, rows = b.cols, b.valueRows
-	case b.hasFromSelect:
-		if len(b.cols) == 0 {
+			for _, row := range b.valueRows {
+				if len(row) != len(b.cols) {
+					w.fail(ErrValueCount)
+					return
+				}
+			}
+			cols, rows = b.cols, b.valueRows
+		case b.hasFromSelect:
+			if len(b.cols) == 0 {
+				w.fail(ErrNoColumns)
+				return
+			}
+			cols = b.cols
+		default:
 			w.fail(ErrNoColumns)
 			return
 		}
-		cols = b.cols
-	default:
-		w.fail(ErrNoColumns)
-		return
-	}
 
-	if !b.hasFromSelect && len(cols) == 0 {
-		w.fail(ErrNoColumns)
-		return
-	}
-	for _, c := range cols {
-		if strings.Contains(c, ".") {
-			w.fail(fmt.Errorf("%w: %q", ErrInvalidIdentifier, c))
+		if !b.hasFromSelect && len(cols) == 0 {
+			w.fail(ErrNoColumns)
 			return
+		}
+		for _, c := range cols {
+			if strings.Contains(c, ".") {
+				w.fail(fmt.Errorf("%w: %q", ErrInvalidIdentifier, c))
+				return
+			}
 		}
 	}
 
 	w.keyword("INSERT INTO ")
 	renderWriteTable(w, b.table)
-	w.keyword(" (")
-	for i, c := range cols {
-		if i > 0 {
-			w.keyword(", ")
-		}
-		w.ident(c)
-	}
-	w.keyword(")")
 
-	if b.hasFromSelect {
-		w.keyword(" ")
-		q := b.fromSelect
-		if q == nil {
-			w.fail(ErrNoTable)
+	if b.defaultValues {
+		if !w.d.Has(FeatureDefaultValues) {
+			w.fail(fmt.Errorf("%w: DEFAULT VALUES", ErrUnsupported))
 			return
 		}
 		if w.d.name == "sqlite" && b.conflict != nil {
-			// SQLite's upsert grammar is ambiguous unless the LAST select
-			// core before ON CONFLICT has a WHERE clause.
-			if len(q.unions) > 0 {
-				if last := q.unions[len(q.unions)-1].query; len(last.where) == 0 {
-					c := q.clone()
-					u := c.unions[len(c.unions)-1]
-					u.query = u.query.Where(sqliteTrueCond)
-					c.unions[len(c.unions)-1] = u
-					q = c
-				}
-			} else if len(q.where) == 0 {
-				q = q.Where(sqliteTrueCond)
-			}
+			w.fail(fmt.Errorf("%w: ON CONFLICT with DEFAULT VALUES", ErrUnsupported))
+			return
 		}
-		q.renderSelect(w)
+		w.keyword(" DEFAULT VALUES")
 	} else {
-		w.keyword(" VALUES ")
-		for i, row := range rows {
+		w.keyword(" (")
+		for i, c := range cols {
 			if i > 0 {
 				w.keyword(", ")
 			}
-			w.keyword("(")
-			for j, v := range row {
-				if j > 0 {
+			w.ident(c)
+		}
+		w.keyword(")")
+
+		if b.hasFromSelect {
+			w.keyword(" ")
+			q := b.fromSelect
+			if q == nil {
+				w.fail(ErrNoTable)
+				return
+			}
+			if w.d.name == "sqlite" && b.conflict != nil {
+				// SQLite's upsert grammar is ambiguous unless the LAST select
+				// core before ON CONFLICT has a WHERE clause.
+				if len(q.unions) > 0 {
+					if last := q.unions[len(q.unions)-1].query; len(last.where) == 0 {
+						c := q.clone()
+						u := c.unions[len(c.unions)-1]
+						u.query = u.query.Where(sqliteTrueCond)
+						c.unions[len(c.unions)-1] = u
+						q = c
+					}
+				} else if len(q.where) == 0 {
+					q = q.Where(sqliteTrueCond)
+				}
+			}
+			q.renderSelect(w)
+		} else {
+			w.keyword(" VALUES ")
+			for i, row := range rows {
+				if i > 0 {
 					w.keyword(", ")
 				}
-				w.arg(v)
+				w.keyword("(")
+				for j, v := range row {
+					if j > 0 {
+						w.keyword(", ")
+					}
+					w.arg(v)
+				}
+				w.keyword(")")
 			}
-			w.keyword(")")
 		}
 	}
 

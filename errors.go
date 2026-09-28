@@ -27,7 +27,7 @@ const (
 
 	ErrNoColumns        = Error("gohan: statement has no columns to write")
 	ErrValueCount       = Error("gohan: value count does not match column count")
-	ErrInsertMixed      = Error("gohan: Rows, Values, SetMap and FromSelect cannot be combined")
+	ErrInsertMixed      = Error("gohan: Rows, Values, SetMap, FromSelect and DefaultValues cannot be combined")
 	ErrInvalidRecord    = Error("gohan: record must be a non-nil struct or pointer to struct")
 	ErrRecordType       = Error("gohan: all records must have the same type")
 	ErrRecordShape      = Error("gohan: record type has a field shape gohan cannot map safely")
