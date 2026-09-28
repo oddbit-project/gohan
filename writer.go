@@ -171,11 +171,18 @@ func isUnsafeClickHouse(v any, top bool) bool {
 	}
 }
 
-// clickHouseNilValuer returns untyped nil in place of v when v is a
-// top-level nil pointer whose type implements driver.Valuer: clickhouse-go
-// would call Value() on it (bindPositional, bind.go:138), which panics for
-// a value-receiver Value method promoted onto a nil pointer.
-func clickHouseNilValuer(v any) any {
+// nilValuer returns untyped nil in place of v when v is a top-level nil
+// pointer whose type implements driver.Valuer, binding it as untyped nil
+// on every dialect. database/sql would otherwise call a pointer-receiver
+// Value() method on the nil pointer and panic (its callValuerValue already
+// skips a nil pointer whose Value has a value receiver, binding NULL);
+// clickhouse-go calls Value() on a nil pointer either way (bindPositional,
+// bind.go:138). Since Eq/Neq/Val no longer treat a nil pointer as SQL NULL
+// (it is bound as an ordinary argument), every dialect can now reach this
+// case, not just ClickHouse. Note: a pointer-receiver Valuer that
+// deliberately returns a non-NULL value for a nil receiver is now bound as
+// NULL.
+func nilValuer(v any) any {
 	if v == nil {
 		return v
 	}
@@ -209,8 +216,8 @@ func (w *writer) arg(v any) {
 			w.fail(fmt.Errorf("%w: %T", ErrUnsafeValue, v))
 			return
 		}
-		v = clickHouseNilValuer(v)
 	}
+	v = nilValuer(v)
 	if w.d.named {
 		name := "p" + strconv.Itoa(len(w.args)+1)
 		w.args = append(w.args, sql.NamedArg{Name: name, Value: v})
