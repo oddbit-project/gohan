@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [v0.4.1] - 2026-09-28
+
 ### Fixed
 
 - A nil `*Value`/`*Order` (e.g. an optional condition held in a `var cond *gohan.Value` that was
