@@ -254,6 +254,15 @@ func TestNonNilPointerParity(t *testing.T) {
 		v := a1
 		assert.Equal(t, IsTrivial(v), IsTrivial(&v))
 	})
+	t.Run("IsTrivial Or nested trivial", func(t *testing.T) {
+		// v.trivial is true (from the nested And()), but v references a
+		// column, so the column-free render fallback alone would call it
+		// non-trivial: this only passes if the trivial flag itself is read
+		// off the dereferenced pointer.
+		v := Or(a1, And())
+		require.True(t, IsTrivial(v))
+		assert.Equal(t, IsTrivial(v), IsTrivial(&v))
+	})
 	t.Run("IsEmpty And", func(t *testing.T) {
 		v := And()
 		assert.Equal(t, IsEmpty(v), IsEmpty(&v))
