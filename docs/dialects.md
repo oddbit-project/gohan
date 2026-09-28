@@ -20,6 +20,7 @@ builder API is the same for all of them.
 | Identifier quoting | `"..."` | `` `...` `` | `"..."`, restricted characters | `"..."` |
 | `RETURNING` | yes | yes | no | no |
 | `ON CONFLICT` upsert | yes | yes | no | no |
+| `INSERT ... DEFAULT VALUES` | yes | yes (not with `ON CONFLICT`) | no | yes |
 | `UPDATE` | yes | yes | no (not built) | yes |
 | `ILIKE` | yes | no | yes | no |
 | `UNION` renders as | `UNION` | `UNION` | `UNION DISTINCT` | `UNION` |
@@ -102,6 +103,11 @@ Using a clause the dialect does not have fails at `Build` with `ErrUnsupported`.
 `FeatureLocking` (row locking — see [Row locking](select.md#row-locking)) is set only on
 `Postgres()`; `SQLite()`, `ClickHouse()`, `ClickHouseNamed()` and `Generic()` all report
 `d.Has(gohan.FeatureLocking) == false`.
+
+`FeatureDefaultValues` (`INSERT ... DEFAULT VALUES` — see
+[DEFAULT VALUES](insert-and-upsert.md#default-values)) is set on `Postgres()`, `SQLite()` and
+`Generic()`; `ClickHouse()` and `ClickHouseNamed()` report `d.Has(gohan.FeatureDefaultValues) ==
+false`, since real ClickHouse rejects `INSERT INTO t DEFAULT VALUES` with a syntax error.
 
 `Dialect.QuoteIdent(name)` quotes a name for hand-written SQL such as DDL. Dots separate qualified
 parts, `*` is kept as is, and quote characters inside a part are escaped:

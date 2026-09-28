@@ -326,6 +326,7 @@ struct's exported fields via `GetStructMeta`, honouring these struct tags:
 | Identifier quoting | `"..."` | `` `...` `` | `"..."` (backslash-escaped, restricted charset) |
 | `RETURNING` | yes | yes | no |
 | `ON CONFLICT` upsert | yes | yes | no |
+| `INSERT ... DEFAULT VALUES` | yes | yes (not with `ON CONFLICT`) | no |
 | `UPDATE` statement | yes | yes | no |
 | `ILIKE` | yes | no (use case-insensitive `LIKE`) | yes |
 | `UNION` keyword | `UNION` | `UNION` | `UNION DISTINCT` |

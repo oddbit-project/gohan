@@ -41,6 +41,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   restriction at all, including a column-free constant such as `Raw("1=1")`, `Raw("true")` or
   `Val(1).Eq(1)` that the builders could not previously detect. See
   [Checking a condition](docs/expressions.md#checking-a-condition).
+- `InsertBuilder.DefaultValues()`: renders `INSERT INTO t DEFAULT VALUES`, for a row that takes
+  every column's default. Cannot be combined with `Columns`, `Values`, `Rows`, `SetMap` or
+  `FromSelect` (`ErrInsertMixed`). `FeatureDefaultValues`: PostgreSQL, SQLite and Generic; fails
+  with `ErrUnsupported` on ClickHouse (real ClickHouse rejects it with a syntax error), and also
+  with `ErrUnsupported` combined with `OnConflict` on SQLite (a syntax error there too; PostgreSQL
+  allows it). See [DEFAULT VALUES](docs/insert-and-upsert.md#default-values).
 
 ### Changed
 

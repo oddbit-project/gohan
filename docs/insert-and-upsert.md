@@ -4,13 +4,14 @@
 - [From structs: Rows](#from-structs-rows)
 - [From a map: SetMap](#from-a-map-setmap)
 - [INSERT ... SELECT](#insert--select)
+- [DEFAULT VALUES](#default-values)
 - [ON CONFLICT (upsert)](#on-conflict-upsert)
 - [RETURNING](#returning)
 - [Errors](#errors)
 
 `Insert(table)` takes a table name (`"schema.table"` allowed) or a `gohan.Table(name)` without an
-alias. Exactly one row source is used: `Values`, `Rows`, `SetMap` or `FromSelect`; combining them
-fails with `ErrInsertMixed`. Every value that is not an expression is bound.
+alias. Exactly one row source is used: `Values`, `Rows`, `SetMap`, `FromSelect` or `DefaultValues`;
+combining them fails with `ErrInsertMixed`. Every value that is not an expression is bound.
 
 ## Columns and values
 
@@ -125,6 +126,24 @@ sql, args, err := gohan.Insert("archived_orders").
 // args: [2020-01-01]
 ```
 
+## DEFAULT VALUES
+
+`DefaultValues()` inserts a single row that takes every column's default (`FeatureDefaultValues`:
+PostgreSQL, SQLite, Generic). It cannot be combined with `Columns`, `Values`, `Rows`, `SetMap` or
+`FromSelect` (`ErrInsertMixed`):
+
+```go
+sql, args, err := gohan.Insert("d").
+	DefaultValues().
+	Returning("id", "code", "name").
+	Build(gohan.Postgres())
+// sql: INSERT INTO "d" DEFAULT VALUES RETURNING "id", "code", "name"
+// args: []
+```
+
+It composes with `OnConflict` and `Returning` as usual, subject to the same dialect gating as any
+other INSERT — with one extra restriction on SQLite and ClickHouse, covered below.
+
 ## ON CONFLICT (upsert)
 
 `OnConflict(cols...)` starts an `ON CONFLICT` clause on dialects with `FeatureUpsert` (PostgreSQL
@@ -191,6 +210,9 @@ sql, args, err := gohan.Insert("tags").
 // args: []
 ```
 
+`DefaultValues().OnConflict(...)` is a syntax error on real SQLite, so `gohan` rejects it at
+`Build` with `ErrUnsupported` instead; PostgreSQL allows it.
+
 ### ClickHouse
 
 ClickHouse has no `ON CONFLICT`: `OnConflict` fails with `ErrUnsupported`. Use a
@@ -206,6 +228,10 @@ fmt.Println(err)
 // Output:
 // gohan: not supported by dialect: ON CONFLICT
 ```
+
+ClickHouse also has no `DEFAULT VALUES` (`INSERT INTO t DEFAULT VALUES` is a syntax error there):
+`DefaultValues()` fails with `ErrUnsupported` on `ClickHouse()` and `ClickHouseNamed()`. Use
+`Values` with the defaults spelled out explicitly instead.
 
 ## RETURNING
 
@@ -229,11 +255,11 @@ Run it with `QueryContext`/`QueryRowContext`, not `ExecContext`.
 |---|---|
 | `ErrNoColumns` | no row source, `Rows()` with no records, an empty `SetMap`, a record with no insertable fields, `FromSelect` without `Columns`, or an update action with nothing to set |
 | `ErrValueCount` | a `Values` row whose length differs from `Columns` (or `Values` without `Columns`) |
-| `ErrInsertMixed` | more than one of `Values`, `Rows`, `SetMap`, `FromSelect` |
+| `ErrInsertMixed` | more than one of `Values`, `Rows`, `SetMap`, `FromSelect`, `DefaultValues`; or `DefaultValues` with a non-empty `Columns` |
 | `ErrInvalidRecord`, `ErrRecordType`, `ErrRecordShape`, `ErrInconsistentOmit`, `ErrDuplicateColumn` | struct problems in `Rows`; see [Records](records-and-struct-tags.md#errors) |
 | `ErrConflictTarget` | `DoUpdate`/`DoUpdateExcluded` without conflict columns |
-| `ErrUnknownField` | a `DoUpdateExcluded` column that is not inserted |
-| `ErrUnsupported` | `OnConflict`, `Excluded` or `Returning` on a dialect without the feature; a `Table` with an alias |
+| `ErrUnknownField` | a `DoUpdateExcluded` column that is not inserted (with `DefaultValues`, always — there are no INSERT columns to match) |
+| `ErrUnsupported` | `OnConflict`, `Excluded` or `Returning` on a dialect without the feature; a `Table` with an alias; `DefaultValues` on ClickHouse; `DefaultValues().OnConflict(...)` on SQLite |
 | `ErrNoTable` | a missing or empty table, a table of the wrong type, or `FromSelect(nil)` |
 | `ErrInvalidIdentifier` | a dotted (qualified) column name: in the column list, a `SetMap` key, a record column, the conflict target, a `DoUpdate` key or `Excluded` |
 | `ErrTooManyArgs` | more bound values than the dialect allows |
