@@ -200,14 +200,29 @@ func TestNilExprPointer(t *testing.T) {
 	})
 
 	t.Run("IsEmpty", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("panic: %v", r)
+			}
+		}()
 		assert.True(t, IsEmpty(nv))
 		assert.True(t, IsEmpty(no))
 	})
 	t.Run("IsTrivial", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("panic: %v", r)
+			}
+		}()
 		assert.True(t, IsTrivial(Expr(nv)))
 		assert.True(t, IsTrivial(Expr(no)))
 	})
 	t.Run("IsTrivial And nv", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("panic: %v", r)
+			}
+		}()
 		// Unlike a bare nil *Value, wrapping it in And() makes IsTrivial
 		// render and observe the ErrNilExpr failure, so it is false.
 		assert.False(t, IsTrivial(And(nv)))
