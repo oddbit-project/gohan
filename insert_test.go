@@ -177,3 +177,70 @@ func TestInsertNotAnExpr(t *testing.T) {
 	exprType := reflect.TypeOf((*Expr)(nil)).Elem()
 	assert.False(t, reflect.TypeOf((*InsertBuilder)(nil)).Implements(exprType))
 }
+
+func TestDefaultValuesGolden(t *testing.T) {
+	tests := []struct {
+		name    string
+		dialect Dialect
+		build   *InsertBuilder
+		sql     string
+		args    []any
+	}{
+		{"postgres plain", Postgres(),
+			Insert("d").DefaultValues(),
+			`INSERT INTO "d" DEFAULT VALUES`, []any{}},
+		{"postgres returning", Postgres(),
+			Insert("d").DefaultValues().Returning(Star()),
+			`INSERT INTO "d" DEFAULT VALUES RETURNING *`, []any{}},
+		{"postgres on conflict do update returning", Postgres(),
+			Insert("d").DefaultValues().OnConflict("id").DoUpdate(map[string]any{"name": "upd"}).Returning("id"),
+			`INSERT INTO "d" DEFAULT VALUES ON CONFLICT ("id") DO UPDATE SET "name" = $1 RETURNING "id"`, []any{"upd"}},
+		{"postgres on conflict do nothing", Postgres(),
+			Insert("d").DefaultValues().OnConflict().DoNothing(),
+			`INSERT INTO "d" DEFAULT VALUES ON CONFLICT DO NOTHING`, []any{}},
+		{"sqlite plain", SQLite(),
+			Insert("d").DefaultValues(),
+			"INSERT INTO `d` DEFAULT VALUES", []any{}},
+		{"sqlite returning", SQLite(),
+			Insert("d").DefaultValues().Returning(Star()),
+			"INSERT INTO `d` DEFAULT VALUES RETURNING *", []any{}},
+		{"generic plain", Generic(),
+			Insert("d").DefaultValues(),
+			`INSERT INTO "d" DEFAULT VALUES`, []any{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sql, args, err := tt.build.Build(tt.dialect)
+			require.NoError(t, err)
+			assert.Equal(t, tt.sql, sql)
+			assert.Equal(t, tt.args, args)
+		})
+	}
+}
+
+func TestDefaultValuesErrors(t *testing.T) {
+	tests := []struct {
+		name    string
+		dialect Dialect
+		build   *InsertBuilder
+		err     error
+	}{
+		{"clickhouse unsupported", ClickHouse(), Insert("d").DefaultValues(), ErrUnsupported},
+		{"clickhouse named unsupported", ClickHouseNamed(), Insert("d").DefaultValues(), ErrUnsupported},
+		{"sqlite on conflict unsupported", SQLite(), Insert("d").DefaultValues().OnConflict("id").DoNothing(), ErrUnsupported},
+		{"mixed with values", Postgres(), Insert("d").DefaultValues().Columns("a").Values(1), ErrInsertMixed},
+		{"mixed with rows", Postgres(), Insert("d").DefaultValues().Rows(struct {
+			Name string `db:"name"`
+		}{"x"}), ErrInsertMixed},
+		{"mixed with setmap", Postgres(), Insert("d").DefaultValues().SetMap(map[string]any{"a": 1}), ErrInsertMixed},
+		{"mixed with from select", Postgres(), Insert("d").DefaultValues().Columns("a").FromSelect(Select("x").From("s")), ErrInsertMixed},
+		{"mixed with columns", Postgres(), Insert("d").DefaultValues().Columns("a"), ErrInsertMixed},
+		{"do update excluded unknown field", Postgres(), Insert("d").DefaultValues().OnConflict("id").DoUpdateExcluded("name"), ErrUnknownField},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, err := tt.build.Build(tt.dialect)
+			assert.True(t, errors.Is(err, tt.err), "got %v", err)
+		})
+	}
+}
