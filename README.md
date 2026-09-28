@@ -276,7 +276,9 @@ select core when it has none — SQLite's own upsert grammar is otherwise ambigu
 On SQLite, `LIKE` is ASCII case-insensitive; on PostgreSQL, ClickHouse and Generic, `LIKE` is
 case-sensitive (use `ILIKE` there, gated by `FeatureILike`). `Contains`, `HasPrefix` and
 `HasSuffix` build a `LIKE` pattern with `%`/`_` in the input escaped, so untrusted search text
-cannot inject its own wildcards.
+cannot inject its own wildcards. `ContainsFold`, `HasPrefixFold` and `HasSuffixFold` are their
+case-insensitive forms, with the same escaping: `ILIKE` on PostgreSQL and ClickHouse, `LIKE` on
+SQLite (ASCII letters only), `ErrUnsupported` on Generic.
 
 ## Record shapes
 

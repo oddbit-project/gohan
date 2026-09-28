@@ -87,6 +87,41 @@ func TestContainsIsLiteral(t *testing.T) {
 	}
 }
 
+func TestFoldHelpers(t *testing.T) {
+	names := []string{
+		`xxAbC%_!yy`,
+		`XXABC%_!YY`,
+		`xxAbCZZ!yy`, // matches only if % or _ were live wildcards
+		`xxabc%_\yy`,
+		`abc%_!`,
+		`Abc%_!tail`,
+	}
+
+	for _, e := range engines(t) {
+		e := e
+		t.Run(e.name, func(t *testing.T) {
+			tbl := idNameTable(t, e)
+			for i, n := range names {
+				exec(t, e, gohan.Insert(tbl).Columns("id", "name").Values(i, n))
+			}
+
+			ids := func(cond gohan.Expr) []string {
+				var out []string
+				for _, r := range query(t, e, gohan.Select("id").From(tbl).Where(cond).OrderBy("id")) {
+					out = append(out, r[0])
+				}
+				return out
+			}
+
+			assert.Equal(t, []string{"0", "1", "4", "5"}, ids(gohan.Col("name").ContainsFold("aBc%_!")))
+			assert.Equal(t, []string{"4", "5"}, ids(gohan.Col("name").HasPrefixFold("ABC%_!")))
+			assert.Equal(t, []string{"0", "1"}, ids(gohan.Col("name").HasSuffixFold("aBc%_!YY")))
+			assert.Equal(t, []string{"3"}, ids(gohan.Col("name").ContainsFold(`C%_\`)))
+			assert.Empty(t, ids(gohan.Col("name").ContainsFold("c_z")))
+		})
+	}
+}
+
 func TestUnionOrderLimit(t *testing.T) {
 	for _, e := range engines(t) {
 		e := e

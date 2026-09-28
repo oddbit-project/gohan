@@ -60,7 +60,8 @@ such names against an allowlist before passing them to `Col`, `OrderBy`, `Select
 
 `Like(p)` binds `p` as a pattern, so `%` and `_` in it are wildcards. Passing user text to `Like`
 cannot inject SQL, but it can widen the match (a search for `%` matches everything). Use
-`Contains`, `HasPrefix` or `HasSuffix` for user text; they escape wildcards per dialect.
+`Contains`, `HasPrefix` or `HasSuffix` (or their case-insensitive `...Fold` forms) for user text;
+they escape wildcards per dialect.
 
 ## Accidental mass updates
 

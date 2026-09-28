@@ -1,6 +1,7 @@
 package gohan
 
 import (
+	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
@@ -182,6 +183,65 @@ func TestLikeHelpers(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, `"a" LIKE ?`, sql)
 	assert.Equal(t, []any{`%50\%\_x\\%`}, args)
+}
+
+func TestFoldLikeHelpers(t *testing.T) {
+	named := func(v string) []any { return []any{sql.NamedArg{Name: "p1", Value: v}} }
+	tests := []struct {
+		name    string
+		dialect Dialect
+		expr    Expr
+		sql     string
+		args    []any
+	}{
+		{"contains pg", Postgres(), Col("a").ContainsFold("AbC%_!"), `"a" ILIKE $1 ESCAPE '!'`, []any{"%AbC!%!_!!%"}},
+		{"prefix pg", Postgres(), Col("a").HasPrefixFold("AbC%_!"), `"a" ILIKE $1 ESCAPE '!'`, []any{"AbC!%!_!!%"}},
+		{"suffix pg", Postgres(), Col("a").HasSuffixFold("AbC%_!"), `"a" ILIKE $1 ESCAPE '!'`, []any{"%AbC!%!_!!"}},
+		{"contains sqlite", SQLite(), Col("a").ContainsFold("AbC%_!"), "`a` LIKE ? ESCAPE '!'", []any{"%AbC!%!_!!%"}},
+		{"prefix sqlite", SQLite(), Col("a").HasPrefixFold("AbC%_!"), "`a` LIKE ? ESCAPE '!'", []any{"AbC!%!_!!%"}},
+		{"suffix sqlite", SQLite(), Col("a").HasSuffixFold("AbC%_!"), "`a` LIKE ? ESCAPE '!'", []any{"%AbC!%!_!!"}},
+		{"contains ch", ClickHouse(), Col("a").ContainsFold(`AbC%_\!`), `"a" ILIKE ?`, []any{`%AbC\%\_\\!%`}},
+		{"prefix ch", ClickHouse(), Col("a").HasPrefixFold(`AbC%_\!`), `"a" ILIKE ?`, []any{`AbC\%\_\\!%`}},
+		{"suffix ch", ClickHouse(), Col("a").HasSuffixFold(`AbC%_\!`), `"a" ILIKE ?`, []any{`%AbC\%\_\\!`}},
+		{"contains ch named", ClickHouseNamed(), Col("a").ContainsFold(`AbC%_\!`), `"a" ILIKE @p1`, named(`%AbC\%\_\\!%`)},
+		{"prefix ch named", ClickHouseNamed(), Col("a").HasPrefixFold(`AbC%_\!`), `"a" ILIKE @p1`, named(`AbC\%\_\\!%`)},
+		{"suffix ch named", ClickHouseNamed(), Col("a").HasSuffixFold(`AbC%_\!`), `"a" ILIKE @p1`, named(`%AbC\%\_\\!`)},
+		{"empty pg", Postgres(), Col("a").ContainsFold(""), `"a" ILIKE $1 ESCAPE '!'`, []any{"%%"}},
+		{"escape only pg", Postgres(), Col("a").HasPrefixFold("!!"), `"a" ILIKE $1 ESCAPE '!'`, []any{"!!!!%"}},
+		{"backslash pg", Postgres(), Col("a").ContainsFold(`a\b`), `"a" ILIKE $1 ESCAPE '!'`, []any{`%a\b%`}},
+		{"bang ch", ClickHouse(), Col("a").ContainsFold("a!b"), `"a" ILIKE ?`, []any{"%a!b%"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sql, args, err := render(tt.dialect, tt.expr)
+			require.NoError(t, err)
+			assert.Equal(t, tt.sql, sql)
+			assert.Equal(t, tt.args, args)
+		})
+	}
+
+	// The fold helpers escape exactly as the case-sensitive ones do.
+	for _, d := range []Dialect{Postgres(), SQLite(), ClickHouse(), ClickHouseNamed()} {
+		for _, s := range []string{"AbC%_!", `x\y`, "", "%%__!!"} {
+			pairs := [][2]Expr{
+				{Col("a").Contains(s), Col("a").ContainsFold(s)},
+				{Col("a").HasPrefix(s), Col("a").HasPrefixFold(s)},
+				{Col("a").HasSuffix(s), Col("a").HasSuffixFold(s)},
+			}
+			for _, p := range pairs {
+				_, cs, err := render(d, p[0])
+				require.NoError(t, err)
+				_, ci, err := render(d, p[1])
+				require.NoError(t, err)
+				assert.Equal(t, cs, ci, "%s %q", d.Name(), s)
+			}
+		}
+	}
+
+	for _, e := range []Expr{Col("a").ContainsFold("x"), Col("a").HasPrefixFold("x"), Col("a").HasSuffixFold("x")} {
+		_, _, err := render(Generic(), e)
+		assert.True(t, errors.Is(err, ErrUnsupported), "got %v", err)
+	}
 }
 
 func TestRaw(t *testing.T) {

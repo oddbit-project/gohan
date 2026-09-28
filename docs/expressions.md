@@ -129,6 +129,25 @@ sql, args, err := gohan.From("users").Where(gohan.Col("name").ILike("ann%")).Bui
 // args: [ann%]
 ```
 
+`ContainsFold(s)`, `HasPrefixFold(s)` and `HasSuffixFold(s)` are the case-insensitive forms of
+`Contains`, `HasPrefix` and `HasSuffix`, with the same escaping. They render `ILIKE` on PostgreSQL
+and ClickHouse, `LIKE` on SQLite, and fail with `ErrUnsupported` on Generic. SQLite's `LIKE` folds
+ASCII letters only, so `ContainsFold("école")` matches `ÉCOLE` on PostgreSQL and ClickHouse but not
+on SQLite:
+
+```go
+q := gohan.From("products").Where(gohan.Col("name").ContainsFold("50%_Off"))
+
+for _, d := range []gohan.Dialect{gohan.Postgres(), gohan.SQLite(), gohan.ClickHouse()} {
+	sql, args, _ := q.Build(d)
+	fmt.Println(sql, args)
+}
+// Output:
+// SELECT * FROM "products" WHERE "name" ILIKE $1 ESCAPE '!' [%50!%!_Off%]
+// SELECT * FROM `products` WHERE `name` LIKE ? ESCAPE '!' [%50!%!_Off%]
+// SELECT * FROM "products" WHERE "name" ILIKE ? [%50\%\_Off%]
+```
+
 ## Combining conditions
 
 `And(exprs...)` and `Or(exprs...)` join their arguments in parentheses (a single argument is

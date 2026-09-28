@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `Value.ContainsFold`, `HasPrefixFold` and `HasSuffixFold`: case-insensitive forms of `Contains`,
+  `HasPrefix` and `HasSuffix`, with the same escaping of `%`, `_` and the escape character. They
+  render `ILIKE` on PostgreSQL and ClickHouse (`FeatureILike`) and `LIKE` on SQLite, whose `LIKE`
+  folds ASCII letters only; they fail with `ErrUnsupported` on Generic. See
+  [LIKE and pattern helpers](docs/expressions.md#like-and-pattern-helpers).
+
 ## [v0.2.0] - 2026-09-28
 
 ### Added

@@ -656,6 +656,23 @@ func ExampleValue_HasPrefix() {
 	// SELECT * FROM "files" WHERE "path" LIKE $1 ESCAPE '!' [/tmp/%] <nil>
 }
 
+// ExampleValue_ContainsFold is the case-insensitive Contains: ILIKE on
+// PostgreSQL and ClickHouse, LIKE on SQLite (ASCII letters only), with the
+// same wildcard escaping as Contains. ErrUnsupported on Generic.
+func ExampleValue_ContainsFold() {
+	q := gohan.From("products").Where(gohan.Col("name").ContainsFold("50%_Off"))
+
+	for _, d := range []gohan.Dialect{gohan.Postgres(), gohan.SQLite(), gohan.ClickHouse(), gohan.Generic()} {
+		sql, args, err := q.Build(d)
+		fmt.Println(sql, args, err)
+	}
+	// Output:
+	// SELECT * FROM "products" WHERE "name" ILIKE $1 ESCAPE '!' [%50!%!_Off%] <nil>
+	// SELECT * FROM `products` WHERE `name` LIKE ? ESCAPE '!' [%50!%!_Off%] <nil>
+	// SELECT * FROM "products" WHERE "name" ILIKE ? [%50\%\_Off%] <nil>
+	//  [] gohan: not supported by dialect: ILIKE
+}
+
 // ExampleValue_ILike is available on PostgreSQL and ClickHouse only
 // (FeatureILike); SQLite's LIKE is already ASCII case-insensitive.
 func ExampleValue_ILike() {

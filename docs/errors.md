@@ -24,7 +24,7 @@ fmt.Println(err)
 |---|---|
 | `ErrUnknownDialect` | `DialectFor` gets an unregistered name, or `Build`/`QuoteIdent` gets the zero `Dialect{}` |
 | `ErrInvalidIdentifier` | an identifier is empty, has an empty dotted part or a NUL byte; on ClickHouse, contains `?`, `@`, `{`, `}` or `$` followed by a digit; an alias or `USING` column is dotted or `*`; a CTE name or a written column (`INSERT`/`UPDATE`/conflict target) is dotted |
-| `ErrUnsupported` | a clause or feature the dialect lacks: `ILIKE`, `RETURNING`, `ON CONFLICT`, `Excluded`, `UPDATE`, the ClickHouse-only clauses; also `Final`/`Sample` on a subquery, more than one `ArrayJoin`/`LeftArrayJoin` call on a builder, an aliased `INSERT`/`UPDATE` table, an aliased ClickHouse `DELETE` table |
+| `ErrUnsupported` | a clause or feature the dialect lacks: `ILIKE` (including `ContainsFold`/`HasPrefixFold`/`HasSuffixFold` on Generic), `RETURNING`, `ON CONFLICT`, `Excluded`, `UPDATE`, the ClickHouse-only clauses; also `Final`/`Sample` on a subquery, more than one `ArrayJoin`/`LeftArrayJoin` call on a builder, an aliased `INSERT`/`UPDATE` table, an aliased ClickHouse `DELETE` table |
 
 ### Statements
 

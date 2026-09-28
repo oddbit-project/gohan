@@ -565,8 +565,18 @@ var (
 	likeEscapeClickHouse = strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`)
 )
 
-func likeHelper(v Value, s string, leading, trailing bool) Value {
+func likeHelper(v Value, s string, leading, trailing, fold bool) Value {
 	return Value{fn: func(w *writer) {
+		op := " LIKE "
+		if fold {
+			switch {
+			case w.d.Has(FeatureILike):
+				op = " ILIKE "
+			case w.d.name != "sqlite":
+				w.fail(fmt.Errorf("%w: ILIKE", ErrUnsupported))
+				return
+			}
+		}
 		var escaped string
 		clickhouse := w.d.quote == quoteClickHouse
 		if clickhouse {
@@ -582,7 +592,7 @@ func likeHelper(v Value, s string, leading, trailing bool) Value {
 			pattern += "%"
 		}
 		renderExpr(w, v)
-		w.keyword(" LIKE ")
+		w.keyword(op)
 		w.arg(pattern)
 		if !clickhouse {
 			w.keyword(" ESCAPE '!'")
@@ -592,15 +602,26 @@ func likeHelper(v Value, s string, leading, trailing bool) Value {
 
 // Contains renders a LIKE match for "%s%", with LIKE wildcards in s
 // escaped.
-func (v Value) Contains(s string) Value { return likeHelper(v, s, true, true) }
+func (v Value) Contains(s string) Value { return likeHelper(v, s, true, true, false) }
 
 // HasPrefix renders a LIKE match for "s%", with LIKE wildcards in s
 // escaped.
-func (v Value) HasPrefix(s string) Value { return likeHelper(v, s, false, true) }
+func (v Value) HasPrefix(s string) Value { return likeHelper(v, s, false, true, false) }
 
 // HasSuffix renders a LIKE match for "%s", with LIKE wildcards in s
 // escaped.
-func (v Value) HasSuffix(s string) Value { return likeHelper(v, s, true, false) }
+func (v Value) HasSuffix(s string) Value { return likeHelper(v, s, true, false, false) }
+
+// ContainsFold is the case-insensitive Contains: it renders ILIKE on
+// dialects with FeatureILike and LIKE on SQLite, whose LIKE only folds
+// ASCII letters. ErrUnsupported on other dialects.
+func (v Value) ContainsFold(s string) Value { return likeHelper(v, s, true, true, true) }
+
+// HasPrefixFold is the case-insensitive HasPrefix; see ContainsFold.
+func (v Value) HasPrefixFold(s string) Value { return likeHelper(v, s, false, true, true) }
+
+// HasSuffixFold is the case-insensitive HasSuffix; see ContainsFold.
+func (v Value) HasSuffixFold(s string) Value { return likeHelper(v, s, true, false, true) }
 
 // Between renders "v BETWEEN lo AND hi".
 func (v Value) Between(lo, hi any) Value {

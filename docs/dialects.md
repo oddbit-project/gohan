@@ -145,6 +145,8 @@ dialect.
 - Identifiers are quoted with backticks. SQLite treats a double-quoted name that matches no column
   as a string literal instead of raising an error; backticks have no such fallback.
 - `LIKE` is case-insensitive for ASCII letters, and there is no `ILIKE` (`ErrUnsupported`).
+  `ContainsFold`, `HasPrefixFold` and `HasSuffixFold` render `LIKE` here, so they do not fold
+  non-ASCII letters. See [LIKE and pattern helpers](expressions.md#like-and-pattern-helpers).
 - An `INSERT ... SELECT` with `ON CONFLICT` gets `WHERE true` when the last select has no `WHERE`,
   which SQLite's grammar requires. See
   [INSERT and upsert](insert-and-upsert.md#sqlite-insert--select-with-on-conflict).
